@@ -1,5 +1,11 @@
+import concurrent.futures
+import logging
+
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
+
+
+logger = logging.getLogger(__name__)
 
 
 class AMClient:
@@ -17,6 +23,53 @@ class AMClient:
 
     def document(self, collection: str, pid: str) -> scielodocument.Article:
         return self._client.document(collection=collection, code=pid)
+
+
+class PoisonPill:
+    def __init__(self):
+        self.poisoned = False
+
+
+class JobExecutor:
+    def __init__(
+        self,
+        func: callable,
+        max_workers: int = 1,
+        success_callback: callable = (lambda *k: k),
+        exception_callback: callable = (lambda *k: k),
+        update_bar: callable = (lambda *k: k),
+    ):
+        self.poison_pill = PoisonPill()
+        self.func = func
+        self.executor = concurrent.futures.ThreadPoolExecutor
+        self.max_workers = max_workers
+        self.success_callback = success_callback
+        self.exception_callback = exception_callback
+        self.update_bar = update_bar
+
+    def run(self, jobs: list = []):
+        with self.executor(max_workers=self.max_workers) as _executor:
+            futures = {
+                _executor.submit(self.func, **job, poison_pill=self.poison_pill): job
+                for job in jobs
+            }
+
+            try:
+                for future in concurrent.futures.as_completed(futures):
+                    job = futures[future]
+                    try:
+                        result = future.result()
+                    except Exception as exc:
+                        self.exception_callback(exc, job)
+                    else:
+                        self.success_callback(result)
+                    finally:
+                        self.update_bar()
+            except KeyboardInterrupt:
+                logging.info("Finalizando...")
+                self.poisoned = True
+                raise
+
 
 def extract_and_export_documents(
     collection:str, pids:typing.List[str], connection:str=None, domain:str=None
