@@ -84,3 +84,54 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
         )
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
+    @patch("exporter.main.PoisonPill")
+    @patch("exporter.main.export_document")
+    @patch.object(AMClient, "document")
+    def test_export_document_called(
+        self, mk_get_document, mk_export_document, MockPoisonPill
+    ):
+        extract_and_export_documents(
+            collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
+        )
+        mk_export_document.assert_called_with(
+            get_document=mk_get_document,
+            collection="scl",
+            pid="S0100-19651998000200002",
+            poison_pill=MockPoisonPill(),
+        )
+
+    @patch("exporter.main.PoisonPill")
+    @patch("exporter.main.export_document")
+    @patch.object(AMClient, "document")
+    def test_export_document_called_for_each_document(
+        self, mk_get_document, mk_export_document, MockPoisonPill
+    ):
+        pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
+        extract_and_export_documents(
+            collection="scl", pids=pids, connection="thrift"
+        )
+        for pid in pids:
+            mk_export_document.assert_any_call(
+                get_document=mk_get_document,
+                collection="scl",
+                pid=pid,
+                poison_pill=MockPoisonPill(),
+            )
+
+    @patch("exporter.main.logger.error")
+    @patch("exporter.main.PoisonPill")
+    @patch("exporter.main.export_document")
+    @patch.object(AMClient, "document")
+    def test_logs_error_if_export_document_raises_exception(
+        self, mk_get_document, mk_export_document, MockPoisonPill, mk_logger_error
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_export_document.side_effect = exc
+        extract_and_export_documents(
+            collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
+        )
+        mk_logger_error.assert_called_once_with(
+            "Não foi possível exportar documento '%s': '%s'.",
+            "S0100-19651998000200002",
+            exc
+        )

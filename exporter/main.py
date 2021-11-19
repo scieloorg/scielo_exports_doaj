@@ -1,6 +1,8 @@
+import typing
 import concurrent.futures
 import logging
 
+from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
@@ -100,4 +102,28 @@ def extract_and_export_documents(
 
     am_client = AMClient(**params) if params else AMClient()
 
+    jobs = [
+        {"get_document": am_client.document, "collection": collection, "pid": pid}
+        for pid in pids
+    ]
+
+    with tqdm(total=len(pids)) as pbar:
+
+        def update_bar(pbar=pbar):
+            pbar.update(1)
+
+        def log_exception(exception, job, logger=logger):
+            logger.error(
+                "Não foi possível exportar documento '%s': '%s'.",
+                job["pid"],
+                exception,
+            )
+
+        executor = JobExecutor(
+            export_document,
+            max_workers=4,
+            exception_callback=log_exception,
+            update_bar=update_bar,
+        )
+        executor.run(jobs)
     return
