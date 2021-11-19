@@ -8,6 +8,10 @@ from xylose import scielodocument
 logger = logging.getLogger(__name__)
 
 
+class ArticleMetaDocumentNotFound(Exception):
+    pass
+
+
 class AMClient:
     def __init__(self, connection: str = None, domain: str = None):
         self._client = self._get_client(connection, domain)
@@ -69,6 +73,20 @@ class JobExecutor:
                 logging.info("Finalizando...")
                 self.poisoned = True
                 raise
+
+
+def export_document(
+    get_document: callable,
+    collection: str,
+    pid: str,
+    poison_pill: PoisonPill = PoisonPill(),
+):
+    if poison_pill.poisoned:
+        return
+
+    document = get_document(collection=collection, pid=pid)
+    if not document or not document.data:
+        raise ArticleMetaDocumentNotFound()
 
 
 def extract_and_export_documents(

@@ -6,6 +6,7 @@ import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
 from exporter import AMClient, extract_and_export_documents
+from exporter.main import export_document, ArticleMetaDocumentNotFound
 
 
 class AMClientTest(unittest.TestCase):
@@ -40,6 +41,30 @@ class AMClientTest(unittest.TestCase):
         self.assertIsInstance(document, scielodocument.Article)
         self.assertEqual(document.collection_acronym, "scl")
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
+
+
+class ExportDocumentTest(unittest.TestCase):
+    def test_amclient_document_called(self):
+        mk_document = Mock()
+        export_document(
+            mk_document, collection="scl", pid="S0100-19651998000200002"
+        )
+        mk_document.assert_called_with(collection="scl", pid="S0100-19651998000200002")
+
+    def test_raises_exception_if_get_document_raises_exception(self):
+        mk_document = Mock(side_effect=Exception("No document found"))
+        with self.assertRaises(Exception) as exc_info:
+            export_document(
+                mk_document, collection="scl", pid="S0100-19651998000200002"
+            )
+        self.assertEqual(str(exc_info.exception), "No document found")
+
+    def test_raises_exception_if_no_document_returned(self):
+        mk_document = Mock(return_value=None)
+        with self.assertRaises(ArticleMetaDocumentNotFound) as exc_info:
+            export_document(
+                mk_document, collection="scl", pid="S0100-19651998000200002"
+            )
 
 
 class ExtractAndExportDocumentsTest(unittest.TestCase):
