@@ -1,6 +1,8 @@
 import typing
 import concurrent.futures
 import logging
+import argparse
+import pathlib
 
 from tqdm import tqdm
 import articlemeta.client as articlemeta_client
@@ -93,7 +95,7 @@ def export_document(
 
 def extract_and_export_documents(
     collection:str, pids:typing.List[str], connection:str=None, domain:str=None
-) -> scielodocument.Article:
+) -> None:
     params = {}
     if connection:
         params["connection"] = connection
@@ -127,3 +129,47 @@ def extract_and_export_documents(
         )
         executor.run(jobs)
     return
+
+
+def main_exporter(sargs):
+    parser = argparse.ArgumentParser(description="Exportador de documentos")
+    parser.add_argument("--loglevel", default="INFO")
+
+    subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
+
+    doaj_parser = subparsers.add_parser(
+        "doaj", help="Base de indexação DOAJ"
+    )
+
+    doaj_parser.add_argument(
+        "--collection",
+        type=str,
+        help="Coleção do(s) documento(s) publicados",
+    )
+
+    doaj_parser.add_argument(
+        "--pid",
+        type=str,
+        help="PID do documento",
+    )
+
+    doaj_parser.add_argument(
+        "--pids",
+        help="Caminho para arquivo com lista de PIDs de documentos a exportar",
+    )
+
+    args = parser.parse_args(sargs)
+
+    # Change Logger level
+    level = getattr(logging, args.loglevel.upper())
+    logger = logging.getLogger()
+    logger.setLevel(level)
+
+    params = {"collection": args.collection}
+    if args.pid:
+        params["pids"] = [args.pid]
+    elif args.pids:
+        pidsfile = pathlib.Path(args.pids)
+        params["pids"] = pidsfile.read_text().split("\n")
+
+    extract_and_export_documents(**params)

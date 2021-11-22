@@ -1,3 +1,5 @@
+import tempfile
+import pathlib
 import unittest
 from unittest.mock import patch, Mock
 
@@ -6,7 +8,7 @@ import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
 from exporter import AMClient, extract_and_export_documents
-from exporter.main import export_document, ArticleMetaDocumentNotFound
+from exporter.main import export_document, ArticleMetaDocumentNotFound, main_exporter
 
 
 class AMClientTest(unittest.TestCase):
@@ -134,4 +136,48 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
             "Não foi possível exportar documento '%s': '%s'.",
             "S0100-19651998000200002",
             exc
+        )
+
+
+class MainExporterTest(unittest.TestCase):
+    @patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_collection_and_pid(
+        self, mk_extract_and_export_documents
+    ):
+        main_exporter(
+            [
+                "doaj",
+                "--collection",
+                "spa",
+                "--pid",
+                "S0100-19651998000200002",
+            ]
+        )
+        mk_extract_and_export_documents.assert_called_with(
+            collection="spa", pids=["S0100-19651998000200002"]
+        )
+
+    @patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_collection_and_pids_from_file(
+        self, mk_extract_and_export_documents
+    ):
+        pids = [
+            "S0100-19651998000200001",
+            "S0100-19651998000200002",
+            "S0100-19651998000200003",
+        ]
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            pids_file = pathlib.Path(tmpdirname) / "pids.txt"
+            pids_file.write_text("\n".join(pids))
+            main_exporter(
+                [
+                    "doaj",
+                    "--collection",
+                    "spa",
+                    "--pids",
+                    str(pids_file),
+                ]
+            )
+        mk_extract_and_export_documents.assert_called_with(
+            collection="spa", pids=pids
         )
