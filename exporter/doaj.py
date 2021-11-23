@@ -33,6 +33,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def bibjson_title(self) -> str:
         return self._data["bibjson"]["title"]
 
+    @property
+    def bibjson_title(self) -> str:
+        return self._data["bibjson"]["title"]
+
     def add_bibjson_author(self, article: scielodocument.Article):
         if not article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
