@@ -73,7 +73,9 @@ class ArticleAdapterTest(TestCase):
 
 
 class ExportDocumentTest(TestCase):
-    def test_amclient_document_called(self):
+
+    @mock.patch("exporter.main.ArticleExporterAdapter")
+    def test_amclient_document_called(self, MockArticleExporterAdapter):
         mk_document = mock.Mock()
         export_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"

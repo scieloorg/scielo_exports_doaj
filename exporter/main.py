@@ -112,6 +112,9 @@ def export_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
+    article_adapter = ArticleExporterAdapter(index, document)
+    article_adapter.export()
+
 
 def extract_and_export_documents(
     index:str,
