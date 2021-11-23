@@ -6,8 +6,14 @@ import vcr
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
-from exporter import AMClient, extract_and_export_documents
-from exporter.main import export_document, ArticleMetaDocumentNotFound, main_exporter
+from exporter import AMClient, extract_and_export_documents, doaj
+from exporter.main import (
+    ArticleMetaDocumentNotFound,
+    InvalidIndexExporter,
+    ArticleExporterAdapter,
+    export_document,
+    main_exporter,
+)
 
 
 class AMClientTest(TestCase):
@@ -42,6 +48,28 @@ class AMClientTest(TestCase):
         self.assertIsInstance(document, scielodocument.Article)
         self.assertEqual(document.collection_acronym, "scl")
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
+
+
+class ArticleAdapterTest(TestCase):
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        client = AMClient()
+        document = client.document(collection="scl", pid="S0100-19651998000200002")
+        self.article = scielodocument.Article(document)
+
+    def test_raises_exception_if_invalid_index(self):
+        with self.assertRaises(InvalidIndexExporter) as exc:
+            article_exporter = ArticleExporterAdapter(
+                index="abc", article=self.article.data
+            )
+
+    @mock.patch("exporter.doaj.DOAJDocument")
+    def test_export_calls_doaj_export(self, MockDOAJDocument):
+        article_exporter: doaj.DOAJDocument = ArticleExporterAdapter(
+            index="doaj", article=self.article.data
+        )
+        article_exporter.export()
+        MockDOAJDocument.assert_called_once()
 
 
 class ExportDocumentTest(TestCase):

@@ -8,11 +8,17 @@ from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
+from exporter import interfaces, doaj
+
 
 logger = logging.getLogger(__name__)
 
 
 class ArticleMetaDocumentNotFound(Exception):
+    pass
+
+
+class InvalidIndexExporter(Exception):
     pass
 
 
@@ -31,6 +37,19 @@ class AMClient:
 
     def document(self, collection: str, pid: str) -> scielodocument.Article:
         return self._client.document(collection=collection, code=pid)
+
+
+class ArticleExporterAdapter(interfaces.IndexExporterInterface):
+    index_exporter: interfaces.IndexExporterInterface
+
+    def __init__(self, index: str, article: scielodocument.Article):
+        if index == "doaj":
+            self.index_exporter = doaj.DOAJDocument(article)
+        else:
+            raise InvalidIndexExporter()
+
+    def export(self):
+        request = self.index_exporter.get_request()
 
 
 class PoisonPill:
