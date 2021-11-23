@@ -1,7 +1,6 @@
 import tempfile
 import pathlib
-import unittest
-from unittest.mock import patch, Mock
+from unittest import TestCase, mock
 
 import vcr
 import articlemeta.client as articlemeta_client
@@ -11,7 +10,7 @@ from exporter import AMClient, extract_and_export_documents
 from exporter.main import export_document, ArticleMetaDocumentNotFound, main_exporter
 
 
-class AMClientTest(unittest.TestCase):
+class AMClientTest(TestCase):
     def make_client(self, connection:str=None, domain:str=None) -> AMClient:
         params = {}
         if connection:
@@ -45,16 +44,16 @@ class AMClientTest(unittest.TestCase):
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
 
 
-class ExportDocumentTest(unittest.TestCase):
+class ExportDocumentTest(TestCase):
     def test_amclient_document_called(self):
-        mk_document = Mock()
+        mk_document = mock.Mock()
         export_document(
             mk_document, collection="scl", pid="S0100-19651998000200002"
         )
         mk_document.assert_called_with(collection="scl", pid="S0100-19651998000200002")
 
     def test_raises_exception_if_get_document_raises_exception(self):
-        mk_document = Mock(side_effect=Exception("No document found"))
+        mk_document = mock.Mock(side_effect=Exception("No document found"))
         with self.assertRaises(Exception) as exc_info:
             export_document(
                 mk_document, collection="scl", pid="S0100-19651998000200002"
@@ -62,22 +61,22 @@ class ExportDocumentTest(unittest.TestCase):
         self.assertEqual(str(exc_info.exception), "No document found")
 
     def test_raises_exception_if_no_document_returned(self):
-        mk_document = Mock(return_value=None)
+        mk_document = mock.Mock(return_value=None)
         with self.assertRaises(ArticleMetaDocumentNotFound) as exc_info:
             export_document(
                 mk_document, collection="scl", pid="S0100-19651998000200002"
             )
 
 
-class ExtractAndExportDocumentsTest(unittest.TestCase):
-    @patch("exporter.main.AMClient")
+class ExtractAndExportDocumentsTest(TestCase):
+    @mock.patch("exporter.main.AMClient")
     def test_instanciates_AMClient(self, MockAMClient):
         extract_and_export_documents(
             collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
         )
         MockAMClient.assert_called_with(connection="thrift")
 
-    @patch("exporter.main.AMClient")
+    @mock.patch("exporter.main.AMClient")
     def test_instanciates_AMClient_with_another_domain(self, MockAMClient):
         extract_and_export_documents(
             collection="scl",
@@ -86,9 +85,9 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
         )
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
-    @patch("exporter.main.PoisonPill")
-    @patch("exporter.main.export_document")
-    @patch.object(AMClient, "document")
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.export_document")
+    @mock.patch.object(AMClient, "document")
     def test_export_document_called(
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
@@ -102,9 +101,9 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
             poison_pill=MockPoisonPill(),
         )
 
-    @patch("exporter.main.PoisonPill")
-    @patch("exporter.main.export_document")
-    @patch.object(AMClient, "document")
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.export_document")
+    @mock.patch.object(AMClient, "document")
     def test_export_document_called_for_each_document(
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
@@ -120,10 +119,10 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
                 poison_pill=MockPoisonPill(),
             )
 
-    @patch("exporter.main.logger.error")
-    @patch("exporter.main.PoisonPill")
-    @patch("exporter.main.export_document")
-    @patch.object(AMClient, "document")
+    @mock.patch("exporter.main.logger.error")
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.export_document")
+    @mock.patch.object(AMClient, "document")
     def test_logs_error_if_export_document_raises_exception(
         self, mk_get_document, mk_export_document, MockPoisonPill, mk_logger_error
     ):
@@ -139,8 +138,8 @@ class ExtractAndExportDocumentsTest(unittest.TestCase):
         )
 
 
-class MainExporterTest(unittest.TestCase):
-    @patch("exporter.main.extract_and_export_documents")
+class MainExporterTest(TestCase):
+    @mock.patch("exporter.main.extract_and_export_documents")
     def test_extract_and_export_documents_called_with_collection_and_pid(
         self, mk_extract_and_export_documents
     ):
@@ -157,7 +156,7 @@ class MainExporterTest(unittest.TestCase):
             collection="spa", pids=["S0100-19651998000200002"]
         )
 
-    @patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.extract_and_export_documents")
     def test_extract_and_export_documents_called_with_collection_and_pids_from_file(
         self, mk_extract_and_export_documents
     ):
