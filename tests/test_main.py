@@ -76,7 +76,7 @@ class ExportDocumentTest(TestCase):
     def test_amclient_document_called(self):
         mk_document = mock.Mock()
         export_document(
-            mk_document, collection="scl", pid="S0100-19651998000200002"
+            mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
         mk_document.assert_called_with(collection="scl", pid="S0100-19651998000200002")
 
@@ -84,7 +84,10 @@ class ExportDocumentTest(TestCase):
         mk_document = mock.Mock(side_effect=Exception("No document found"))
         with self.assertRaises(Exception) as exc_info:
             export_document(
-                mk_document, collection="scl", pid="S0100-19651998000200002"
+                mk_document,
+                index="doaj",
+                collection="scl",
+                pid="S0100-19651998000200002",
             )
         self.assertEqual(str(exc_info.exception), "No document found")
 
@@ -92,7 +95,10 @@ class ExportDocumentTest(TestCase):
         mk_document = mock.Mock(return_value=None)
         with self.assertRaises(ArticleMetaDocumentNotFound) as exc_info:
             export_document(
-                mk_document, collection="scl", pid="S0100-19651998000200002"
+                mk_document,
+                index="doaj",
+                collection="scl",
+                pid="S0100-19651998000200002",
             )
 
 
@@ -100,13 +106,17 @@ class ExtractAndExportDocumentsTest(TestCase):
     @mock.patch("exporter.main.AMClient")
     def test_instanciates_AMClient(self, MockAMClient):
         extract_and_export_documents(
-            collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
+            index="doaj",
+            collection="scl",
+            pids=["S0100-19651998000200002"],
+            connection="thrift",
         )
         MockAMClient.assert_called_with(connection="thrift")
 
     @mock.patch("exporter.main.AMClient")
     def test_instanciates_AMClient_with_another_domain(self, MockAMClient):
         extract_and_export_documents(
+            index="doaj",
             collection="scl",
             pids=["S0100-19651998000200002"],
             domain="http://anotheram.scielo.org",
@@ -120,10 +130,14 @@ class ExtractAndExportDocumentsTest(TestCase):
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
         extract_and_export_documents(
-            collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
+            index="doaj",
+            collection="scl",
+            pids=["S0100-19651998000200002"],
+            connection="thrift",
         )
         mk_export_document.assert_called_with(
             get_document=mk_get_document,
+            index="doaj",
             collection="scl",
             pid="S0100-19651998000200002",
             poison_pill=MockPoisonPill(),
@@ -137,11 +151,12 @@ class ExtractAndExportDocumentsTest(TestCase):
     ):
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
         extract_and_export_documents(
-            collection="scl", pids=pids, connection="thrift"
+            index="doaj", collection="scl", pids=pids, connection="thrift"
         )
         for pid in pids:
             mk_export_document.assert_any_call(
                 get_document=mk_get_document,
+                index="doaj",
                 collection="scl",
                 pid=pid,
                 poison_pill=MockPoisonPill(),
@@ -157,7 +172,10 @@ class ExtractAndExportDocumentsTest(TestCase):
         exc = ArticleMetaDocumentNotFound()
         mk_export_document.side_effect = exc
         extract_and_export_documents(
-            collection="scl", pids=["S0100-19651998000200002"], connection="thrift"
+            index="doaj",
+            collection="scl",
+            pids=["S0100-19651998000200002"],
+            connection="thrift",
         )
         mk_logger_error.assert_called_once_with(
             "Não foi possível exportar documento '%s': '%s'.",
@@ -181,7 +199,7 @@ class MainExporterTest(TestCase):
             ]
         )
         mk_extract_and_export_documents.assert_called_with(
-            collection="spa", pids=["S0100-19651998000200002"]
+            index="doaj", collection="spa", pids=["S0100-19651998000200002"]
         )
 
     @mock.patch("exporter.main.extract_and_export_documents")
@@ -206,5 +224,5 @@ class MainExporterTest(TestCase):
                 ]
             )
         mk_extract_and_export_documents.assert_called_with(
-            collection="spa", pids=pids
+            index="doaj", collection="spa", pids=pids
         )
