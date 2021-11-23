@@ -39,8 +39,22 @@ class DOAJDocumentTest(TestCase):
             self.doaj_document.bibjson_identifier,
         )
 
+    def test_bibjson_title(self):
+        title = self.article.data.original_title()
+        if (
+            not title and
+            self.article.translated_titles() and
+            len(self.article.translated_titles()) != 0
+        ):
+            item = [(k, v) for k, v in self.article.translated_titles().items()][0]
+            title = item[1]
 
-class DOAJDocumentErrorsTest(TestCase):
+        self.assertEqual(
+            title, self.doaj_document.bibjson_title
+        )
+
+
+class DOAJDocumentExceptionsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
@@ -57,3 +71,15 @@ class DOAJDocumentErrorsTest(TestCase):
         self.article.data.journal.print_issn = None
         with self.assertRaises(doaj.DOAJDocumentNoISSNException) as exc:
             doaj.DOAJDocument(article=self.article)
+
+    def test_sets_as_untitled_document_if_no_article_title(self):
+        del self.article.data.data["article"]["v12"]    # v12: titles
+        doaj_document = doaj.DOAJDocument(article=self.article)
+
+        section_code = self.article.data.section_code
+        original_lang = self.article.data.original_language()
+        # Section title = "Artigos"
+        self.assertEqual(
+            self.article.data.issue.sections.get(section_code, {}).get(original_lang),
+            doaj_document.bibjson_title,
+        )
