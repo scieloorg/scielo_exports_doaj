@@ -10,12 +10,11 @@ class DOAJDocumentTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
-        document = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.article = scielodocument.Article(document)
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
         self.doaj_document = doaj.DOAJDocument(article=self.article)
 
     def test_bibjson_author(self):
-        for author in self.article.data.authors:
+        for author in self.article.authors:
             with self.subTest(author=author):
                 author_name = [author.get('given_names', ''), author.get('surname', '')]
                 self.assertIn(
@@ -24,8 +23,8 @@ class DOAJDocumentTest(TestCase):
                 )
 
     def test_bibjson_identifier(self):
-        issn = self.article.data.journal.any_issn()
-        if issn == self.article.data.journal.electronic_issn:
+        issn = self.article.journal.any_issn()
+        if issn == self.article.journal.electronic_issn:
             issn_type = "eissn"
         else:
             issn_type = "pissn"
@@ -35,12 +34,12 @@ class DOAJDocumentTest(TestCase):
             self.doaj_document.bibjson_identifier,
         )
         self.assertIn(
-            {"id": self.article.data.doi, "type": "doi"},
+            {"id": self.article.doi, "type": "doi"},
             self.doaj_document.bibjson_identifier,
         )
 
     def test_bibjson_title(self):
-        title = self.article.data.original_title()
+        title = self.article.original_title()
         if (
             not title and
             self.article.translated_titles() and
@@ -70,28 +69,27 @@ class DOAJDocumentExceptionsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
-        document = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.article = scielodocument.Article(document)
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
     def test_raises_exception_if_no_author(self):
-        del self.article.data.data["article"]["v10"]    # v10: authors
+        del self.article.data["article"]["v10"]    # v10: authors
         with self.assertRaises(doaj.DOAJDocumentNoAuthorsException) as exc:
             doaj.DOAJDocument(article=self.article)
 
     def test_raises_exception_if_no_eissn_nor_pissn(self):
-        self.article.data.journal.electronic_issn = None
-        self.article.data.journal.print_issn = None
+        self.article.journal.electronic_issn = None
+        self.article.journal.print_issn = None
         with self.assertRaises(doaj.DOAJDocumentNoISSNException) as exc:
             doaj.DOAJDocument(article=self.article)
 
     def test_sets_as_untitled_document_if_no_article_title(self):
-        del self.article.data.data["article"]["v12"]    # v12: titles
+        del self.article.data["article"]["v12"]    # v12: titles
         doaj_document = doaj.DOAJDocument(article=self.article)
 
-        section_code = self.article.data.section_code
-        original_lang = self.article.data.original_language()
+        section_code = self.article.section_code
+        original_lang = self.article.original_language()
         # Section title = "Artigos"
         self.assertEqual(
-            self.article.data.issue.sections.get(section_code, {}).get(original_lang),
+            self.article.issue.sections.get(section_code, {}).get(original_lang),
             doaj_document.bibjson_title,
         )
