@@ -53,6 +53,18 @@ class DOAJDocumentTest(TestCase):
             title, self.doaj_document.bibjson_title
         )
 
+    def test_get_request(self):
+        request = self.doaj_document.get_request()
+
+        expected = {
+            "bibjson": {
+                "author": self.doaj_document.bibjson_author,
+                "identifier": self.doaj_document.bibjson_identifier,
+                "title": self.doaj_document.bibjson_title,
+            },
+        }
+        self.assertEqual(request, expected)
+
 
 class DOAJDocumentExceptionsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
