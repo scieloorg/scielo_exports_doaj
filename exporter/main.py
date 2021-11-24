@@ -170,6 +170,6 @@ def main_exporter(sargs):
         params["pids"] = [args.pid]
     elif args.pids:
         pidsfile = pathlib.Path(args.pids)
-        params["pids"] = pidsfile.read_text().split("\n")
+        params["pids"] = [pid for pid in pidsfile.read_text().split("\n") if pid]
 
     extract_and_export_documents(**params)
