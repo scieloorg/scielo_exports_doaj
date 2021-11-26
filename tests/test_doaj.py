@@ -6,12 +6,12 @@ from xylose import scielodocument
 from exporter import AMClient, doaj
 
 
-class DOAJDocumentTest(TestCase):
+class DOAJExporterTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.doaj_document = doaj.DOAJDocument(article=self.article)
+        self.doaj_document = doaj.DOAJExporter(article=self.article)
 
     def test_bibjson_author(self):
         for author in self.article.authors:
@@ -52,20 +52,11 @@ class DOAJDocumentTest(TestCase):
             title, self.doaj_document.bibjson_title
         )
 
-    def test_get_request(self):
-        request = self.doaj_document.get_request()
-
-        expected = {
-            "bibjson": {
-                "author": self.doaj_document.bibjson_author,
-                "identifier": self.doaj_document.bibjson_identifier,
-                "title": self.doaj_document.bibjson_title,
-            },
-        }
-        self.assertEqual(request, expected)
+    def test_export(self):
+        pass
 
 
-class DOAJDocumentExceptionsTest(TestCase):
+class DOAJExporterExceptionsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
@@ -73,18 +64,18 @@ class DOAJDocumentExceptionsTest(TestCase):
 
     def test_raises_exception_if_no_author(self):
         del self.article.data["article"]["v10"]    # v10: authors
-        with self.assertRaises(doaj.DOAJDocumentNoAuthorsException) as exc:
-            doaj.DOAJDocument(article=self.article)
+        with self.assertRaises(doaj.DOAJExporterNoAuthorsException) as exc:
+            doaj.DOAJExporter(article=self.article)
 
     def test_raises_exception_if_no_eissn_nor_pissn(self):
         self.article.journal.electronic_issn = None
         self.article.journal.print_issn = None
-        with self.assertRaises(doaj.DOAJDocumentNoISSNException) as exc:
-            doaj.DOAJDocument(article=self.article)
+        with self.assertRaises(doaj.DOAJExporterNoISSNException) as exc:
+            doaj.DOAJExporter(article=self.article)
 
     def test_sets_as_untitled_document_if_no_article_title(self):
         del self.article.data["article"]["v12"]    # v12: titles
-        doaj_document = doaj.DOAJDocument(article=self.article)
+        doaj_document = doaj.DOAJExporter(article=self.article)
 
         section_code = self.article.section_code
         original_lang = self.article.original_language()

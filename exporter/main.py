@@ -44,12 +44,12 @@ class ArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def __init__(self, index: str, article: scielodocument.Article):
         if index == "doaj":
-            self.index_exporter = doaj.DOAJDocument(article)
+            self.index_exporter = doaj.DOAJExporter(article)
         else:
             raise InvalidIndexExporter()
 
     def export(self):
-        request = self.index_exporter.get_request()
+        request = self.index_exporter.export()
 
 
 class PoisonPill:

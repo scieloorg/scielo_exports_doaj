@@ -63,13 +63,13 @@ class ArticleAdapterTest(TestCase):
                 index="abc", article=self.article.data
             )
 
-    @mock.patch("exporter.doaj.DOAJDocument")
-    def test_export_calls_doaj_export(self, MockDOAJDocument):
-        article_exporter: doaj.DOAJDocument = ArticleExporterAdapter(
+    @mock.patch("exporter.doaj.DOAJExporter")
+    def test_export_calls_doaj_export(self, MockDOAJExporter):
+        article_exporter: doaj.DOAJExporter = ArticleExporterAdapter(
             index="doaj", article=self.article.data
         )
         article_exporter.export()
-        MockDOAJDocument.assert_called_once()
+        MockDOAJExporter.assert_called_once()
 
 
 class ExportDocumentTest(TestCase):
