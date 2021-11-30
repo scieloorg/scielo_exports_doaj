@@ -10,7 +10,7 @@ from exporter import AMClient, extract_and_export_documents, doaj
 from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidIndexExporter,
-    ArticleExporterAdapter,
+    XyloseArticleExporterAdapter,
     export_document,
     main_exporter,
 )
@@ -59,23 +59,23 @@ class ArticleAdapterTest(TestCase):
 
     def test_raises_exception_if_invalid_index(self):
         with self.assertRaises(InvalidIndexExporter) as exc:
-            article_exporter = ArticleExporterAdapter(
+            article_exporter = XyloseArticleExporterAdapter(
                 index="abc", article=self.article.data
             )
 
-    @mock.patch("exporter.doaj.DOAJExporter")
-    def test_export_calls_doaj_export(self, MockDOAJExporter):
-        article_exporter: doaj.DOAJExporter = ArticleExporterAdapter(
+    @mock.patch("exporter.doaj.DOAJExporterXyloseArticle")
+    def test_export_calls_doaj_export(self, MockDOAJExporterXyloseArticle):
+        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
             index="doaj", article=self.article.data
         )
         article_exporter.export()
-        MockDOAJExporter.assert_called_once()
+        MockDOAJExporterXyloseArticle.assert_called_once()
 
 
 class ExportDocumentTest(TestCase):
 
-    @mock.patch("exporter.main.ArticleExporterAdapter")
-    def test_amclient_document_called(self, MockArticleExporterAdapter):
+    @mock.patch("exporter.main.XyloseArticleExporterAdapter")
+    def test_amclient_document_called(self, MockXyloseArticleExporterAdapter):
         mk_document = mock.Mock()
         export_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"

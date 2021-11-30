@@ -5,15 +5,15 @@ from xylose import scielodocument
 from exporter import interfaces
 
 
-class DOAJExporterNoAuthorsException(Exception):
+class DOAJExporterXyloseArticleNoAuthorsException(Exception):
     pass
 
 
-class DOAJExporterNoISSNException(Exception):
+class DOAJExporterXyloseArticleNoISSNException(Exception):
     pass
 
 
-class DOAJExporter(interfaces.IndexExporterInterface):
+class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def __init__(self, article: scielodocument.Article):
         self._data = {}
         self._data.setdefault("bibjson", {})
@@ -35,7 +35,7 @@ class DOAJExporter(interfaces.IndexExporterInterface):
 
     def add_bibjson_author(self, article: scielodocument.Article):
         if not article.authors:
-            raise DOAJExporterNoAuthorsException()
+            raise DOAJExporterXyloseArticleNoAuthorsException()
 
         self._data["bibjson"].setdefault("author", [])
         for author in article.authors:
@@ -45,7 +45,7 @@ class DOAJExporter(interfaces.IndexExporterInterface):
     def add_bibjson_identifier(self, article: scielodocument.Article):
         issn = article.journal.any_issn()
         if not issn:
-            raise DOAJExporterNoISSNException()
+            raise DOAJExporterXyloseArticleNoISSNException()
 
         if issn == article.journal.electronic_issn:
             issn_type = "eissn"

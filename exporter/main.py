@@ -39,12 +39,12 @@ class AMClient:
         return self._client.document(collection=collection, code=pid)
 
 
-class ArticleExporterAdapter(interfaces.IndexExporterInterface):
+class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     index_exporter: interfaces.IndexExporterInterface
 
     def __init__(self, index: str, article: scielodocument.Article):
         if index == "doaj":
-            self.index_exporter = doaj.DOAJExporter(article)
+            self.index_exporter = doaj.DOAJExporterXyloseArticle(article)
         else:
             raise InvalidIndexExporter()
 
@@ -112,7 +112,7 @@ def export_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
-    article_adapter = ArticleExporterAdapter(index, document)
+    article_adapter = XyloseArticleExporterAdapter(index, document)
     article_adapter.export()
 
 
