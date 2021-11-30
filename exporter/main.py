@@ -8,11 +8,17 @@ from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
+from exporter import interfaces, doaj
+
 
 logger = logging.getLogger(__name__)
 
 
 class ArticleMetaDocumentNotFound(Exception):
+    pass
+
+
+class InvalidIndexExporter(Exception):
     pass
 
 
@@ -31,6 +37,19 @@ class AMClient:
 
     def document(self, collection: str, pid: str) -> scielodocument.Article:
         return self._client.document(collection=collection, code=pid)
+
+
+class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
+    index_exporter: interfaces.IndexExporterInterface
+
+    def __init__(self, index: str, article: scielodocument.Article):
+        if index == "doaj":
+            self.index_exporter = doaj.DOAJExporterXyloseArticle(article)
+        else:
+            raise InvalidIndexExporter()
+
+    def export(self):
+        request = self.index_exporter.export()
 
 
 class PoisonPill:
@@ -81,6 +100,7 @@ class JobExecutor:
 
 def export_document(
     get_document: callable,
+    index: str,
     collection: str,
     pid: str,
     poison_pill: PoisonPill = PoisonPill(),
@@ -92,9 +112,16 @@ def export_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
+    article_adapter = XyloseArticleExporterAdapter(index, document)
+    article_adapter.export()
+
 
 def extract_and_export_documents(
-    collection:str, pids:typing.List[str], connection:str=None, domain:str=None
+    index:str,
+    collection:str,
+    pids:typing.List[str],
+    connection:str=None,
+    domain:str=None,
 ) -> None:
     params = {}
     if connection:
@@ -105,7 +132,7 @@ def extract_and_export_documents(
     am_client = AMClient(**params) if params else AMClient()
 
     jobs = [
-        {"get_document": am_client.document, "collection": collection, "pid": pid}
+        {"get_document": am_client.document, "index": index, "collection": collection, "pid": pid}
         for pid in pids
     ]
 
@@ -165,7 +192,7 @@ def main_exporter(sargs):
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {"collection": args.collection}
+    params = {"index": args.index, "collection": args.collection}
     if args.pid:
         params["pids"] = [args.pid]
     elif args.pids:
