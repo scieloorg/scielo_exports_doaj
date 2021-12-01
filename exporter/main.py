@@ -4,6 +4,8 @@ import logging
 import argparse
 import pathlib
 
+import requests
+from requests.exceptions import HTTPError
 from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
@@ -19,6 +21,10 @@ class ArticleMetaDocumentNotFound(Exception):
 
 
 class InvalidIndexExporter(Exception):
+    pass
+
+
+class IndexExporterHTTPError(Exception):
     pass
 
 
@@ -47,13 +53,28 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             self.index_exporter = doaj.DOAJExporterXyloseArticle(article)
         else:
             raise InvalidIndexExporter()
+        self.index = index
 
     @property
     def post_request(self):
         return self.index_exporter.post_request
 
+    def _http_post_articles(self):
+        resp = requests.post(
+            self.index_exporter.crud_article_url, data=self.post_request
+        )
+        resp.raise_for_status()
+        return resp
+
     def export(self):
-        request = self.index_exporter.export()
+        try:
+            resp = self._http_post_articles()
+        except HTTPError as exc:
+            raise IndexExporterHTTPError(
+                f"Erro na exportação ao {self.index}: " + str(exc)
+            )
+        else:
+            return resp
 
 
 class PoisonPill:
