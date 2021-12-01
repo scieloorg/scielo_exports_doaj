@@ -4,13 +4,14 @@ import logging
 import argparse
 import pathlib
 
+import tenacity
 import requests
 from requests.exceptions import HTTPError
 from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
-from exporter import interfaces, doaj
+from exporter import interfaces, doaj, config
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,13 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     def post_request(self):
         return self.index_exporter.post_request
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(),
+        stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
+        retry=tenacity.retry_if_exception_type(
+            (requests.ConnectionError, requests.Timeout),
+        ),
+    )
     def _http_post_articles(self):
         resp = requests.post(
             self.index_exporter.crud_article_url, data=self.post_request
