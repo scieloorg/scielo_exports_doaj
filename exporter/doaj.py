@@ -2,7 +2,11 @@ import typing
 
 from xylose import scielodocument
 
-from exporter import interfaces
+from exporter import interfaces, config
+
+
+class DOAJExporterXyloseArticleNoRequestData(Exception):
+    pass
 
 
 class DOAJExporterXyloseArticleNoAuthorsException(Exception):
@@ -15,11 +19,21 @@ class DOAJExporterXyloseArticleNoISSNException(Exception):
 
 class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def __init__(self, article: scielodocument.Article):
+        self._set_api_config()
         self._data = {}
         self._data.setdefault("bibjson", {})
         self.add_bibjson_author(article)
         self.add_bibjson_identifier(article)
         self.add_bibjson_title(article)
+
+    def _set_api_config(self):
+        for attr, envvar in [("_api_url", "DOAJ_API_URL"), ("_api_key", "DOAJ_API_KEY")]:
+            config_var = config.get(envvar)
+            if not config_var:
+                raise DOAJExporterXyloseArticleNoRequestData(f"No {envvar} set")
+            setattr(self, attr, config_var)
+
+        self.crud_article_url = f"{self._api_url}articles"
 
     @property
     def bibjson_author(self) -> typing.List[dict]:

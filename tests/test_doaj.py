@@ -3,15 +3,22 @@ from unittest import TestCase, mock
 import vcr
 from xylose import scielodocument
 
-from exporter import AMClient, doaj
+from exporter import AMClient, doaj, config
 
 
 class DOAJExporterXyloseArticleTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
         self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+    def test_crud_article_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "articles",
+            self.doaj_document.crud_article_url,
+        )
 
     def test_bibjson_author(self):
         for author in self.article.authors:
@@ -56,11 +63,24 @@ class DOAJExporterXyloseArticleTest(TestCase):
         pass
 
 
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
 class DOAJExporterXyloseArticleExceptionsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_URL": ""})
+    def test_raises_exception_if_no_post_url(self):
+        with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
+            doaj.DOAJExporterXyloseArticle(article=self.article).post_url
+        self.assertEqual("No DOAJ_API_URL set", str(exc.exception))
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": ""})
+    def test_raises_exception_if_no_api_key(self):
+        with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
+            doaj.DOAJExporterXyloseArticle(article=self.article)._api_key
+        self.assertEqual("No DOAJ_API_KEY set", str(exc.exception))
 
     def test_raises_exception_if_no_author(self):
         del self.article.data["article"]["v10"]    # v10: authors
