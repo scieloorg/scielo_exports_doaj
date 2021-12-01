@@ -55,10 +55,14 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         else:
             raise InvalidIndexExporter()
         self.index = index
+        self._pid = article.data.get("code", "")
 
     @property
-    def post_request(self):
+    def post_request(self) -> dict:
         return self.index_exporter.post_request
+
+    def post_response(self, response: dict) -> dict:
+        return self.index_exporter.post_response(response)
 
     @tenacity.retry(
         wait=tenacity.wait_exponential(),
@@ -82,7 +86,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 f"Erro na exportação ao {self.index}: " + str(exc)
             )
         else:
-            return resp
+            export_result = self.post_response(resp.json())
+            export_result["pid"] = self._pid
+            return export_result
 
 
 class PoisonPill:

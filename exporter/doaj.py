@@ -52,10 +52,16 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         return self._data["bibjson"]["title"]
 
     @property
-    def post_request(self):
+    def post_request(self) -> dict:
         return {
             "api_key": config.get("DOAJ_API_KEY"),
             "article_json": self._data
+        }
+
+    def post_response(self, response: dict) -> dict:
+        return {
+            "index_id": response.get("id"),
+            "status": response.get("status"),
         }
 
     def add_bibjson_author(self, article: scielodocument.Article):
