@@ -4,12 +4,14 @@ from unittest import TestCase, mock
 
 import vcr
 import articlemeta.client as articlemeta_client
+import requests
 from xylose import scielodocument
 
 from exporter import AMClient, extract_and_export_documents, doaj
 from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidIndexExporter,
+    IndexExporterHTTPError,
     XyloseArticleExporterAdapter,
     export_document,
     main_exporter,
@@ -50,26 +52,45 @@ class AMClientTest(TestCase):
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
 
 
-class ArticleAdapterTest(TestCase):
+class XyloseArticleExporterAdapterTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         client = AMClient()
-        document = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.article = scielodocument.Article(document)
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
     def test_raises_exception_if_invalid_index(self):
         with self.assertRaises(InvalidIndexExporter) as exc:
             article_exporter = XyloseArticleExporterAdapter(
-                index="abc", article=self.article.data
+                index="abc", article=self.article
             )
 
     @mock.patch("exporter.doaj.DOAJExporterXyloseArticle")
-    def test_export_calls_doaj_export(self, MockDOAJExporterXyloseArticle):
+    @mock.patch("exporter.main.requests")
+    def test_export_calls_requests_post_to_doaj_api_with_doaj_post_request(
+        self, mk_requests, MockDOAJExporterXyloseArticle
+    ):
         article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", article=self.article.data
+            index="doaj", article=self.article
         )
         article_exporter.export()
-        MockDOAJExporterXyloseArticle.assert_called_once()
+        mk_requests.post.assert_called_once_with(
+            article_exporter.index_exporter.crud_article_url,
+            data=article_exporter.post_request,
+        )
+
+    @mock.patch("exporter.doaj.DOAJExporterXyloseArticle")
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(
+        self, mk_requests, MockDOAJExporterXyloseArticle
+    ):
+        mk_requests.post.return_value.raise_for_status.side_effect = \
+            requests.exceptions.HTTPError("HTTP Error")
+        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
+            index="doaj", article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.export()
+        self.assertEqual("Erro na exportação ao doaj: HTTP Error", str(exc.exception))
 
 
 class ExportDocumentTest(TestCase):
