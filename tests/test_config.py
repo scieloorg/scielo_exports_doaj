@@ -12,3 +12,8 @@ class ConfigTest(TestCase):
         self.assertEqual(
             config.get("DOAJ_API_URL"), config._default.get("DOAJ_API_URL")
         )
+
+    def test_get_default_export_run_retries_if_no_envvar_set(self):
+        self.assertEqual(
+            config.get("EXPORT_RUN_RETRIES"), config._default.get("EXPORT_RUN_RETRIES")
+        )
