@@ -48,6 +48,10 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         else:
             raise InvalidIndexExporter()
 
+    @property
+    def post_request(self):
+        return self.index_exporter.post_request
+
     def export(self):
         request = self.index_exporter.export()
 

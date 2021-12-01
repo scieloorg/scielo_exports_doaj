@@ -59,8 +59,14 @@ class DOAJExporterXyloseArticleTest(TestCase):
             title, self.doaj_document.bibjson_title
         )
 
-    def test_export(self):
-        pass
+    def test_post_request(self):
+        expected = {
+            "api_key": config.get("DOAJ_API_KEY"),
+            "article_json": self.doaj_document._data
+        }
+        self.assertEqual(
+            expected, self.doaj_document.post_request
+        )
 
 
 @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
