@@ -1,5 +1,6 @@
 import tempfile
 import pathlib
+import json
 from unittest import TestCase, mock
 
 import vcr
@@ -92,6 +93,27 @@ class XyloseArticleExporterAdapterTest(TestCase):
             article_exporter.export()
         self.assertEqual("Erro na exportação ao doaj: HTTP Error", str(exc.exception))
 
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_returns_exporter_post_response(self, mk_requests):
+        mk_requests.post.return_value.json.return_value = {
+            "id": "doaj-id",
+            "location": "br",
+            "status": "OK",
+        }
+        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
+            index="doaj", article=self.article
+        )
+        ret = article_exporter.export()
+        self.assertEqual(
+            ret,
+            {
+                "pid": self.article.data["code"],
+                "index_id": "doaj-id",
+                "status": "OK",
+            }
+        )
+
 
 class ExportDocumentTest(TestCase):
 
@@ -124,23 +146,52 @@ class ExportDocumentTest(TestCase):
                 pid="S0100-19651998000200002",
             )
 
+    @mock.patch("exporter.main.XyloseArticleExporterAdapter")
+    def test_XyloseArticleExporterAdapter_instance_created(self, MockXyloseArticleExporterAdapter):
+        document = mock.Mock(spec=scielodocument.Article, data={"id": "document-1234"})
+        mk_document = mock.Mock(return_value=document)
+        export_document(
+            mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
+        )
+        MockXyloseArticleExporterAdapter.assert_called_once_with("doaj", document)
 
+    @mock.patch("exporter.main.XyloseArticleExporterAdapter", autospec=True)
+    def test_calls_XyloseArticleExporterAdapter_export(self, MockXyloseArticleExporterAdapter):
+        document = mock.create_autospec(
+            spec=scielodocument.Article, data={"id": "document-1234"}
+        )
+        mk_document = mock.Mock(return_value=document)
+        export_document(
+            mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
+        )
+        MockXyloseArticleExporterAdapter.return_value.export.assert_called_once()
+
+
+@vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
 class ExtractAndExportDocumentsTest(TestCase):
     @mock.patch("exporter.main.AMClient")
-    def test_instanciates_AMClient(self, MockAMClient):
+    @mock.patch("exporter.main.export_document")
+    def test_instanciates_AMClient(self, mk_export_document, MockAMClient):
+        mk_export_document.return_value = {}
         extract_and_export_documents(
             index="doaj",
             collection="scl",
+            output_path="output.log",
             pids=["S0100-19651998000200002"],
             connection="thrift",
         )
         MockAMClient.assert_called_with(connection="thrift")
 
     @mock.patch("exporter.main.AMClient")
-    def test_instanciates_AMClient_with_another_domain(self, MockAMClient):
+    @mock.patch("exporter.main.export_document")
+    def test_instanciates_AMClient_with_another_domain(
+        self, mk_export_document, MockAMClient
+    ):
+        mk_export_document.return_value = {}
         extract_and_export_documents(
             index="doaj",
             collection="scl",
+            output_path="output.log",
             pids=["S0100-19651998000200002"],
             domain="http://anotheram.scielo.org",
         )
@@ -152,9 +203,11 @@ class ExtractAndExportDocumentsTest(TestCase):
     def test_export_document_called(
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
+        mk_export_document.return_value = {}
         extract_and_export_documents(
             index="doaj",
             collection="scl",
+            output_path="output.log",
             pids=["S0100-19651998000200002"],
             connection="thrift",
         )
@@ -172,9 +225,14 @@ class ExtractAndExportDocumentsTest(TestCase):
     def test_export_document_called_for_each_document(
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
+        mk_export_document.return_value = {}
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
         extract_and_export_documents(
-            index="doaj", collection="scl", pids=pids, connection="thrift"
+            index="doaj",
+            collection="scl",
+            output_path="output.log",
+            pids=pids,
+            connection="thrift",
         )
         for pid in pids:
             mk_export_document.assert_any_call(
@@ -197,6 +255,7 @@ class ExtractAndExportDocumentsTest(TestCase):
         extract_and_export_documents(
             index="doaj",
             collection="scl",
+            output_path="output.log",
             pids=["S0100-19651998000200002"],
             connection="thrift",
         )
@@ -206,6 +265,35 @@ class ExtractAndExportDocumentsTest(TestCase):
             exc
         )
 
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.export_document")
+    @mock.patch.object(AMClient, "document")
+    def test_logs_error_if_export_document_raises_exception(
+        self, mk_get_document, mk_export_document, MockPoisonPill
+    ):
+        mk_export_document.return_value = {
+            "index_id": "doaj-123", "status": "OK", "pid": "S0100-19651998000200002",
+        }
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            output_file = pathlib.Path(tmpdirname) / "output.log"
+            extract_and_export_documents(
+                index="doaj",
+                collection="scl",
+                output_path=output_file,
+                pids=["S0100-19651998000200002"],
+                connection="thrift",
+            )
+            self.assertEqual(
+                json.dumps(
+                    {
+                        "index_id": "doaj-123",
+                        "status": "OK",
+                        "pid": "S0100-19651998000200002",
+                    }
+                ) + "\n",
+                output_file.read_text(),
+            )
+
 
 class MainExporterTest(TestCase):
     @mock.patch("exporter.main.extract_and_export_documents")
@@ -214,6 +302,8 @@ class MainExporterTest(TestCase):
     ):
         main_exporter(
             [
+                "--output",
+                "output.log",
                 "doaj",
                 "--collection",
                 "spa",
@@ -222,7 +312,10 @@ class MainExporterTest(TestCase):
             ]
         )
         mk_extract_and_export_documents.assert_called_with(
-            index="doaj", collection="spa", pids=["S0100-19651998000200002"]
+            index="doaj",
+            collection="spa",
+            output_path="output.log",
+            pids=["S0100-19651998000200002"],
         )
 
     @mock.patch("exporter.main.extract_and_export_documents")
@@ -239,6 +332,8 @@ class MainExporterTest(TestCase):
             pids_file.write_text("\n".join(pids))
             main_exporter(
                 [
+                    "--output",
+                    "output.log",
                     "doaj",
                     "--collection",
                     "spa",
@@ -247,5 +342,5 @@ class MainExporterTest(TestCase):
                 ]
             )
         mk_extract_and_export_documents.assert_called_with(
-            index="doaj", collection="spa", pids=pids
+            index="doaj", collection="spa", output_path="output.log", pids=pids
         )
