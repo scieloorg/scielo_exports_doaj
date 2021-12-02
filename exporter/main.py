@@ -3,6 +3,7 @@ import concurrent.futures
 import logging
 import argparse
 import pathlib
+import json
 
 import tenacity
 import requests
@@ -152,12 +153,13 @@ def export_document(
         raise ArticleMetaDocumentNotFound()
 
     article_adapter = XyloseArticleExporterAdapter(index, document)
-    article_adapter.export()
+    return article_adapter.export()
 
 
 def extract_and_export_documents(
     index:str,
     collection:str,
+    output_path:str,
     pids:typing.List[str],
     connection:str=None,
     domain:str=None,
@@ -180,6 +182,10 @@ def extract_and_export_documents(
         def update_bar(pbar=pbar):
             pbar.update(1)
 
+        def write_result(result, path=output_path):
+            output_file = pathlib.Path(path)
+            output_file.write_text(json.dumps(result) + "\n")
+
         def log_exception(exception, job, logger=logger):
             logger.error(
                 "Não foi possível exportar documento '%s': '%s'.",
@@ -190,6 +196,7 @@ def extract_and_export_documents(
         executor = JobExecutor(
             export_document,
             max_workers=4,
+            success_callback=write_result,
             exception_callback=log_exception,
             update_bar=update_bar,
         )
@@ -200,6 +207,11 @@ def extract_and_export_documents(
 def main_exporter(sargs):
     parser = argparse.ArgumentParser(description="Exportador de documentos")
     parser.add_argument("--loglevel", default="INFO")
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Caminho para arquivo de resultado da exportação",
+    )
 
     subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
 
@@ -231,7 +243,9 @@ def main_exporter(sargs):
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {"index": args.index, "collection": args.collection}
+    params = {
+        "index": args.index, "collection": args.collection, "output_path": args.output
+    }
     if args.pid:
         params["pids"] = [args.pid]
     elif args.pids:
