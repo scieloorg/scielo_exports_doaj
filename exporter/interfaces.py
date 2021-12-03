@@ -11,5 +11,9 @@ class IndexExporterInterface(ABC):
         pass
 
     @abstractmethod
+    def error_response(self, response: dict) -> str:
+        pass
+
+    @abstractmethod
     def export(self):
         pass

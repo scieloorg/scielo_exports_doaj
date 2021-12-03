@@ -65,6 +65,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     def post_response(self, response: dict) -> dict:
         return self.index_exporter.post_response(response)
 
+    def error_response(self, response: dict) -> dict:
+        return self.index_exporter.error_response(response)
+
     @tenacity.retry(
         wait=tenacity.wait_exponential(),
         stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
@@ -73,19 +76,18 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         ),
     )
     def _http_post_articles(self):
-        resp = requests.post(
+        return requests.post(
             self.index_exporter.crud_article_url, data=self.post_request
         )
-        resp.raise_for_status()
-        return resp
 
     def export(self):
+        resp = self._http_post_articles()
         try:
-            resp = self._http_post_articles()
+            resp.raise_for_status()
         except HTTPError as exc:
-            raise IndexExporterHTTPError(
-                f"Erro na exportação ao {self.index}: " + str(exc)
-            )
+            error_response = self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
         else:
             export_result = self.post_response(resp.json())
             export_result["pid"] = self._pid

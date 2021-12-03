@@ -64,6 +64,9 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             "status": response.get("status"),
         }
 
+    def error_response(self, response: dict) -> str:
+        return response.get("error", "")
+
     def add_bibjson_author(self, article: scielodocument.Article):
         if not article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
