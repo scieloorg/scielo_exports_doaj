@@ -12,12 +12,29 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(
+            article=self.article, now=self._fake_utcnow()
+        )
+
+    def _fake_utcnow(self):
+        return "2021-01-01T00:00:00Z"
 
     def test_crud_article_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles",
             self.doaj_document.crud_article_url,
+        )
+
+    def test_created_date(self):
+        self.assertEqual(
+            self._fake_utcnow(),
+            self.doaj_document.created_date,
+        )
+
+    def test_last_updated(self):
+        self.assertEqual(
+            self._fake_utcnow(),
+            self.doaj_document.last_updated,
         )
 
     def test_bibjson_author(self):
