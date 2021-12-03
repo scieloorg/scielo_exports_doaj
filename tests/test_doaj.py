@@ -23,7 +23,9 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def test_bibjson_author(self):
         for author in self.article.authors:
             with self.subTest(author=author):
-                author_name = [author.get('given_names', ''), author.get('surname', '')]
+                author_name = " ".join(
+                    [author.get('given_names', ''), author.get('surname', '')]
+                )
                 self.assertIn(
                     {"name": author_name},
                     self.doaj_document.bibjson_author,

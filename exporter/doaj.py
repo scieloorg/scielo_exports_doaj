@@ -70,7 +70,9 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
         self._data["bibjson"].setdefault("author", [])
         for author in article.authors:
-            author_name = [author.get('given_names', ''), author.get('surname', '')]
+            author_name = " ".join(
+                [author.get('given_names', ''), author.get('surname', '')]
+            )
             self._data["bibjson"]["author"].append({"name": author_name})
 
     def add_bibjson_identifier(self, article: scielodocument.Article):
