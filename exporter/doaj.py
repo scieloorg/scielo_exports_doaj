@@ -13,6 +13,10 @@ class DOAJExporterXyloseArticleNoAuthorsException(Exception):
     pass
 
 
+class DOAJExporterXyloseArticleNoJournalRequiredFields(Exception):
+    pass
+
+
 class DOAJExporterXyloseArticleNoISSNException(Exception):
     pass
 
@@ -24,6 +28,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._data.setdefault("bibjson", {})
         self.add_bibjson_author(article)
         self.add_bibjson_identifier(article)
+        self.add_bibjson_journal(article)
         self.add_bibjson_title(article)
 
     def _set_api_config(self):
@@ -44,8 +49,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         return self._data["bibjson"]["identifier"]
 
     @property
-    def bibjson_title(self) -> str:
-        return self._data["bibjson"]["title"]
+    def bibjson_journal(self) -> str:
+        return self._data["bibjson"]["journal"]
 
     @property
     def bibjson_title(self) -> str:
@@ -94,6 +99,32 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             self._data["bibjson"]["identifier"].append(
                 {"id": article.doi, "type": "doi"}
             )
+
+    def add_bibjson_journal(self, article: scielodocument.Article):
+        journal = {}
+
+        def _set_journal_field(journal, article, field, field_to_set, required=False):
+            journal_field = getattr(article.journal, field)
+            if journal_field:
+                journal[field_to_set] = journal_field
+            elif not journal_field and required:
+                raise DOAJExporterXyloseArticleNoJournalRequiredFields()
+
+
+        publisher_country = article.journal.publisher_country
+        if not publisher_country:
+            raise DOAJExporterXyloseArticleNoJournalRequiredFields()
+        else:
+            country_code, __ = publisher_country
+            journal["country"] = country_code
+
+        _set_journal_field(journal, article, "languages", "language", required=True)
+        _set_journal_field(
+            journal, article, "publisher_name", "publisher", required=True
+        )
+        _set_journal_field(journal, article, "title", "title", required=True)
+
+        self._data["bibjson"]["journal"] = journal
 
     def add_bibjson_title(self, article: scielodocument.Article):
         title = article.original_title()
