@@ -47,6 +47,24 @@ class DOAJExporterXyloseArticleTest(TestCase):
             self.doaj_document.bibjson_identifier,
         )
 
+    def test_bibjson_journal(self):
+        expected = {}
+        publisher_country = self.article.journal.publisher_country
+        if publisher_country:
+            country_code, __ = publisher_country
+            expected["country"] = country_code
+        languages = self.article.journal.languages
+        if languages:
+            expected["language"] = languages
+        publisher_name = self.article.journal.publisher_name
+        if publisher_name:
+            expected["publisher"] = publisher_name
+        title = self.article.journal.title
+        if title:
+            expected["title"] = title
+
+        self.assertEqual(expected, self.doaj_document.bibjson_journal)
+
     def test_bibjson_title(self):
         title = self.article.original_title()
         if (
@@ -124,6 +142,17 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         self.article.journal.electronic_issn = None
         self.article.journal.print_issn = None
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoISSNException) as exc:
+            doaj.DOAJExporterXyloseArticle(article=self.article)
+
+    def test_raises_exception_if_no_journal_required_fields(self):
+        del self.article.journal.data["v310"]    # v310: publisher_country
+        del self.article.journal.data["v350"]    # v350: languages
+        del self.article.journal.data["v480"]    # v480: publisher_name
+        del self.article.journal.data["v100"]    # v100: title
+
+        with self.assertRaises(
+            doaj.DOAJExporterXyloseArticleNoJournalRequiredFields
+        ) as exc:
             doaj.DOAJExporterXyloseArticle(article=self.article)
 
     def test_sets_as_untitled_document_if_no_article_title(self):
