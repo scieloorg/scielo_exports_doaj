@@ -70,6 +70,31 @@ class DOAJExporterXyloseArticleTest(TestCase):
             expected, self.doaj_document.post_request
         )
 
+    def test_post_response_201(self):
+        fake_response = {
+          "id": "doaj-1234",
+          "location": "",
+          "status": "OK",
+        }
+        expected = {
+            "index_id": "doaj-1234",
+            "status": "OK",
+        }
+        self.assertEqual(
+            expected, self.doaj_document.post_response(fake_response)
+        )
+
+    def test_error_response(self):
+        fake_response = {
+          "id": "doaj-1234",
+          "location": "",
+          "status": "FAIL",
+          "error": "Fake Field is missing.",
+        }
+        self.assertEqual(
+            "Fake Field is missing.", self.doaj_document.error_response(fake_response)
+        )
+
 
 @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
 class DOAJExporterXyloseArticleExceptionsTest(TestCase):
@@ -111,4 +136,15 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         self.assertEqual(
             self.article.issue.sections.get(section_code, {}).get(original_lang),
             doaj_document.bibjson_title,
+        )
+
+    def test_error_response_return_empty_str_if_no_error(self):
+        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        fake_response = {
+          "id": "doaj-1234",
+          "location": "",
+          "status": "FAIL",
+        }
+        self.assertEqual(
+            "", doaj_document.error_response(fake_response)
         )
