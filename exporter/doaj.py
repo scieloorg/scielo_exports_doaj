@@ -2,7 +2,7 @@ import typing
 
 from xylose import scielodocument
 
-from exporter import interfaces, config
+from exporter import interfaces, config, utils
 
 
 class DOAJExporterXyloseArticleNoRequestData(Exception):
@@ -22,9 +22,10 @@ class DOAJExporterXyloseArticleNoISSNException(Exception):
 
 
 class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
-    def __init__(self, article: scielodocument.Article):
+    def __init__(self, article: scielodocument.Article, now: callable = utils.utcnow()):
         self._set_api_config()
         self._data = {}
+        self._data["created_date"] = self._data["last_updated"] = now
         self._data.setdefault("bibjson", {})
         self.add_bibjson_author(article)
         self.add_bibjson_identifier(article)
@@ -39,6 +40,14 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             setattr(self, attr, config_var)
 
         self.crud_article_url = f"{self._api_url}articles"
+
+    @property
+    def created_date(self) -> typing.List[dict]:
+        return self._data["created_date"]
+
+    @property
+    def last_updated(self) -> typing.List[dict]:
+        return self._data["last_updated"]
 
     @property
     def bibjson_author(self) -> typing.List[dict]:
