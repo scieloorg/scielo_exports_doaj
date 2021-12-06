@@ -77,7 +77,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     )
     def _http_post_articles(self):
         return requests.post(
-            self.index_exporter.crud_article_url, data=self.post_request
+            url=self.index_exporter.crud_article_url, **self.post_request
         )
 
     def export(self):
