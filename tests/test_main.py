@@ -65,19 +65,27 @@ class XyloseArticleExporterAdapterTest(TestCase):
                 index="abc", article=self.article
             )
 
-    @mock.patch("exporter.doaj.DOAJExporterXyloseArticle")
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
     def test_export_calls_requests_post_to_doaj_api_with_doaj_post_request(
-        self, mk_requests, MockDOAJExporterXyloseArticle
+        self, mk_requests
     ):
-        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", article=self.article
-        )
-        article_exporter.export()
-        mk_requests.post.assert_called_once_with(
-            article_exporter.index_exporter.crud_article_url,
-            data=article_exporter.post_request,
-        )
+        with mock.patch(
+            "exporter.doaj.DOAJExporterXyloseArticle.post_request",
+            new_callable=mock.PropertyMock,
+        ) as mk_post_request:
+            mk_post_request.return_value = {
+                "api_key": "doaj-api-key-1234",
+                "json": {"field": "value"},
+            }
+            article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
+                index="doaj", article=self.article
+            )
+            article_exporter.export()
+            mk_requests.post.assert_called_once_with(
+                url=article_exporter.index_exporter.crud_article_url,
+                **{"api_key": "doaj-api-key-1234", "json": {"field": "value"}},
+            )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
