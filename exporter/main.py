@@ -186,7 +186,8 @@ def extract_and_export_documents(
 
         def write_result(result, path=output_path):
             output_file = pathlib.Path(path)
-            output_file.write_text(json.dumps(result) + "\n")
+            with output_file.open("a", encoding="utf-8") as fp:
+                fp.write(json.dumps(result) + "\n")
 
         def log_exception(exception, job, logger=logger):
             logger.error(
