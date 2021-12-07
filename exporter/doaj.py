@@ -30,6 +30,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self.add_bibjson_author(article)
         self.add_bibjson_identifier(article)
         self.add_bibjson_journal(article)
+        self.add_bibjson_keywords(article)
         self.add_bibjson_title(article)
 
     def _set_api_config(self):
@@ -60,6 +61,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     @property
     def bibjson_journal(self) -> str:
         return self._data["bibjson"]["journal"]
+
+    @property
+    def bibjson_keywords(self) -> str:
+        return self._data["bibjson"].get("keywords")
 
     @property
     def bibjson_title(self) -> str:
@@ -134,6 +139,13 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         _set_journal_field(journal, article, "title", "title", required=True)
 
         self._data["bibjson"]["journal"] = journal
+
+    def add_bibjson_keywords(self, article: scielodocument.Article):
+        keywords = article.keywords()
+        if keywords:
+            self._data["bibjson"].setdefault("keywords", [])
+            for keywords_to_send in keywords.values():
+                self._data["bibjson"]["keywords"] += keywords_to_send
 
     def add_bibjson_title(self, article: scielodocument.Article):
         title = article.original_title()
