@@ -284,31 +284,32 @@ class ExtractAndExportDocumentsTest(TestCase):
     @mock.patch("exporter.main.PoisonPill")
     @mock.patch("exporter.main.export_document")
     @mock.patch.object(AMClient, "document")
-    def test_logs_error_if_export_document_raises_exception(
+    def test_all_docs_successfully_posted_are_recorded_to_file(
         self, mk_get_document, mk_export_document, MockPoisonPill
     ):
-        mk_export_document.return_value = {
-            "index_id": "doaj-123", "status": "OK", "pid": "S0100-19651998000200002",
-        }
+        fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
+        fake_exported_docs = [
+            {
+                "index_id": f"doaj-{pid}",
+                "status": "OK",
+                "pid": pid,
+            }
+            for pid in fake_pids
+        ]
+        mk_export_document.side_effect = fake_exported_docs
         with tempfile.TemporaryDirectory() as tmpdirname:
             output_file = pathlib.Path(tmpdirname) / "output.log"
             extract_and_export_documents(
                 index="doaj",
                 collection="scl",
                 output_path=output_file,
-                pids=["S0100-19651998000200002"],
+                pids=fake_pids,
                 connection="thrift",
             )
-            self.assertEqual(
-                json.dumps(
-                    {
-                        "index_id": "doaj-123",
-                        "status": "OK",
-                        "pid": "S0100-19651998000200002",
-                    }
-                ) + "\n",
-                output_file.read_text(),
-            )
+            file_content = output_file.read_text()
+            for pid in fake_pids:
+                with self.subTest(pid=pid):
+                    self.assertIn(pid, file_content)
 
 
 class MainExporterTest(TestCase):
