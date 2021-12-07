@@ -82,6 +82,15 @@ class DOAJExporterXyloseArticleTest(TestCase):
 
         self.assertEqual(expected, self.doaj_document.bibjson_journal)
 
+    def test_bibjson_keywords(self):
+        keywords = self.article.keywords()
+        expected = []
+        for kw_lang in keywords.values():
+            expected += kw_lang
+        self.assertEqual(
+            expected, self.doaj_document.bibjson_keywords
+        )
+
     def test_bibjson_title(self):
         title = self.article.original_title()
         if (
@@ -171,6 +180,12 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
             doaj.DOAJExporterXyloseArticleNoJournalRequiredFields
         ) as exc:
             doaj.DOAJExporterXyloseArticle(article=self.article)
+
+    def test_no_keywords_if_no_article_keywords(self):
+        del self.article.data["article"]["v85"]    # v85: keywords
+        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+        self.assertIsNone(doaj_document.bibjson_keywords)
 
     def test_sets_as_untitled_document_if_no_article_title(self):
         del self.article.data["article"]["v12"]    # v12: titles
