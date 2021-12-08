@@ -1,5 +1,6 @@
 import typing
 
+import requests
 from xylose import scielodocument
 
 from exporter import interfaces, config, utils
@@ -27,8 +28,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._data = {}
         self._data["created_date"] = self._data["last_updated"] = now
         self._data.setdefault("bibjson", {})
-        self.add_bibjson_identifier(article)
         self._add_bibjson_author(article)
+        self._add_bibjson_identifier(article)
         self._add_bibjson_journal(article)
         self._add_bibjson_keywords(article)
         self._add_bibjson_title(article)
@@ -41,6 +42,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             setattr(self, attr, config_var)
 
         self.crud_article_url = f"{self._api_url}articles"
+        self.search_journal_url = f"{self._api_url}search/journals/"
 
     @property
     def created_date(self) -> typing.List[dict]:
@@ -97,16 +99,29 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             )
             self._data["bibjson"]["author"].append({"name": author_name})
 
-    def add_bibjson_identifier(self, article: scielodocument.Article):
-        issn = article.journal.any_issn()
-        if not issn:
+    def _get_registered_journal_issn(self, article: scielodocument.Article):
+        for journal_attr in ["electronic_issn", "print_issn"]:
+            issn = getattr(article.journal, journal_attr)
+            if not issn:
+                continue
+
+            resp = requests.get(f"{self.search_journal_url}{issn}")
+            if resp.status_code != 200 or not resp.json().get("results"):
+                continue
+
+            search_result = resp.json()["results"][0]
+            bibjson = search_result.get("bibjson", {})
+            bibjson_issn = bibjson.get("eissn")
+            if bibjson_issn:
+                return bibjson_issn, "eissn"
+            else:
+                return bibjson.get("pissn"), "pissn"
+        else:
             raise DOAJExporterXyloseArticleNoISSNException()
 
-        if issn == article.journal.electronic_issn:
-            issn_type = "eissn"
-        else:
-            issn_type = "pissn"
 
+    def _add_bibjson_identifier(self, article: scielodocument.Article):
+        issn, issn_type = self._get_registered_journal_issn(article)
         self._data["bibjson"]["identifier"] = [{"id": issn, "type": issn_type}]
 
         if article.doi:
