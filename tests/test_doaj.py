@@ -1,13 +1,14 @@
 from unittest import TestCase, mock
 
 import vcr
+import requests
 from xylose import scielodocument
 
 from exporter import AMClient, doaj, config
 
 
 class DOAJExporterXyloseArticleTest(TestCase):
-    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     def setUp(self):
         client = AMClient()
@@ -142,7 +143,7 @@ class DOAJExporterXyloseArticleTest(TestCase):
 
 @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
 class DOAJExporterXyloseArticleExceptionsTest(TestCase):
-    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
@@ -169,6 +170,50 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         self.article.journal.print_issn = None
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoISSNException) as exc:
             doaj.DOAJExporterXyloseArticle(article=self.article)
+
+    @mock.patch("exporter.doaj.requests.get")
+    def test_send_request_get_with_eissn_and_pissn(self, mk_requests_get):
+        # MockRequest = mock.Mock(spec=requests.Request, status_code=404)
+        # MockRequest.json = mock.Mock(return_value={"results": [{"field": "value"}]})
+        mk_requests_get.side_effect = [
+            mock.MagicMock(status_code=404), mock.MagicMock(status_code=200),
+        ]
+
+        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        mk_requests_get.assert_has_calls(
+            [
+                mock.call(
+                    f"{doaj_document.search_journal_url}{self.article.journal.electronic_issn}"
+                ),
+                mock.call(
+                    f"{doaj_document.search_journal_url}{self.article.journal.print_issn}"
+                ),
+            ]
+        )
+
+    @mock.patch("exporter.doaj.requests.get")
+    def test_set_identifier_with_issn_returned_from_doaj_journals_search(
+        self, mk_requests_get
+    ):
+        MockRequest = mock.Mock(spec=requests.Request, status_code=200)
+        MockRequest.json = mock.Mock(
+            return_value={
+                "results": [
+                    {
+                        "bibjson": {
+                            "eissn": "eissn-returned",
+                            "pissn": "pissn-returned",
+                        },
+                    },
+                ],
+            }
+        )
+        mk_requests_get.return_value = MockRequest
+        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+        self.assertIn(
+            {"id": "eissn-returned", "type": "eissn"}, doaj_document.bibjson_identifier,
+        )
 
     def test_raises_exception_if_no_journal_required_fields(self):
         del self.article.journal.data["v310"]    # v310: publisher_country
