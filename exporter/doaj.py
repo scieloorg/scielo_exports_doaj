@@ -27,11 +27,11 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._data = {}
         self._data["created_date"] = self._data["last_updated"] = now
         self._data.setdefault("bibjson", {})
-        self.add_bibjson_author(article)
         self.add_bibjson_identifier(article)
-        self.add_bibjson_journal(article)
-        self.add_bibjson_keywords(article)
-        self.add_bibjson_title(article)
+        self._add_bibjson_author(article)
+        self._add_bibjson_journal(article)
+        self._add_bibjson_keywords(article)
+        self._add_bibjson_title(article)
 
     def _set_api_config(self):
         for attr, envvar in [("_api_url", "DOAJ_API_URL"), ("_api_key", "DOAJ_API_KEY")]:
@@ -86,7 +86,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def error_response(self, response: dict) -> str:
         return response.get("error", "")
 
-    def add_bibjson_author(self, article: scielodocument.Article):
+    def _add_bibjson_author(self, article: scielodocument.Article):
         if not article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
 
@@ -114,7 +114,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 {"id": article.doi, "type": "doi"}
             )
 
-    def add_bibjson_journal(self, article: scielodocument.Article):
+    def _add_bibjson_journal(self, article: scielodocument.Article):
         journal = {}
 
         def _set_journal_field(journal, article, field, field_to_set, required=False):
@@ -140,14 +140,14 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
         self._data["bibjson"]["journal"] = journal
 
-    def add_bibjson_keywords(self, article: scielodocument.Article):
+    def _add_bibjson_keywords(self, article: scielodocument.Article):
         keywords = article.keywords()
         if keywords:
             self._data["bibjson"].setdefault("keywords", [])
             for keywords_to_send in keywords.values():
                 self._data["bibjson"]["keywords"] += keywords_to_send
 
-    def add_bibjson_title(self, article: scielodocument.Article):
+    def _add_bibjson_title(self, article: scielodocument.Article):
         title = article.original_title()
         if (
             not title and
