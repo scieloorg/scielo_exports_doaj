@@ -92,6 +92,27 @@ class DOAJExporterXyloseArticleTest(TestCase):
             expected, self.doaj_document.bibjson_keywords
         )
 
+    def test_bibjson_link(self):
+        MIME_TYPE = {
+            "html": "text/html",
+            "pdf": "application/pdf",
+        }
+
+        fulltexts = self.article.fulltexts()
+        expected = []
+        for content_type, links in fulltexts.items():
+            for __, url in links.items():
+                expected.append(
+                    {
+                        "content_type": MIME_TYPE[content_type],
+                        "type": "fulltext",
+                        "url": url,
+                    }
+                )
+        self.assertEqual(
+            expected, self.doaj_document.bibjson_link
+        )
+
     def test_bibjson_title(self):
         title = self.article.original_title()
         if (
@@ -231,6 +252,23 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
 
         self.assertIsNone(doaj_document.bibjson_keywords)
+
+    def test_raises_exception_if_no_doi_nor_fulltexts(self):
+        del self.article.data["doi"]
+        del self.article.data["article"]["v237"]    # v237: doi
+        with mock.patch.object(self.article, "fulltexts") as mk_fulltexts:
+            mk_fulltexts.return_value = {
+                'html': {"pt": ""},
+                'pdf': {"pt": ""},
+            }
+            with self.assertRaises(
+                doaj.DOAJExporterXyloseArticleNoDOINorlink
+            ) as exc:
+                doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.assertEqual(
+                str(exc.exception),
+                "Documento não possui DOI ou links para texto completo",
+            )
 
     def test_sets_as_untitled_document_if_no_article_title(self):
         del self.article.data["article"]["v12"]    # v12: titles

@@ -22,6 +22,10 @@ class DOAJExporterXyloseArticleNoISSNException(Exception):
     pass
 
 
+class DOAJExporterXyloseArticleNoDOINorlink(Exception):
+    pass
+
+
 class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def __init__(self, article: scielodocument.Article, now: callable = utils.utcnow()):
         self._set_api_config()
@@ -32,6 +36,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._add_bibjson_identifier(article)
         self._add_bibjson_journal(article)
         self._add_bibjson_keywords(article)
+        self._add_bibjson_link(article)
         self._add_bibjson_title(article)
 
     def _set_api_config(self):
@@ -67,6 +72,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     @property
     def bibjson_keywords(self) -> str:
         return self._data["bibjson"].get("keywords")
+
+    @property
+    def bibjson_link(self) -> str:
+        return self._data["bibjson"]["link"]
 
     @property
     def bibjson_title(self) -> str:
@@ -161,6 +170,31 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             self._data["bibjson"].setdefault("keywords", [])
             for keywords_to_send in keywords.values():
                 self._data["bibjson"]["keywords"] += keywords_to_send
+
+    def _add_bibjson_link(self, article: scielodocument.Article):
+        MIME_TYPE = {
+            "html": "text/html",
+            "pdf": "application/pdf",
+        }
+
+        fulltexts = article.fulltexts()
+        if fulltexts:
+            self._data["bibjson"].setdefault("link", [])
+            for content_type, links in fulltexts.items():
+                for __, url in links.items():
+                    if url:
+                        self._data["bibjson"]["link"].append(
+                            {
+                                "content_type": MIME_TYPE[content_type],
+                                "type": "fulltext",
+                                "url": url,
+                            }
+                        )
+
+        if not (self._data["bibjson"].get("link") or article.doi):
+            raise DOAJExporterXyloseArticleNoDOINorlink(
+                "Documento não possui DOI ou links para texto completo"
+            )
 
     def _add_bibjson_title(self, article: scielodocument.Article):
         title = article.original_title()
