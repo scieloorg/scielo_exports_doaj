@@ -32,6 +32,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._data = {}
         self._data["created_date"] = self._data["last_updated"] = now
         self._data.setdefault("bibjson", {})
+        self._add_bibjson_abstract(article)
         self._add_bibjson_author(article)
         self._add_bibjson_identifier(article)
         self._add_bibjson_journal(article)
@@ -56,6 +57,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     @property
     def last_updated(self) -> typing.List[dict]:
         return self._data["last_updated"]
+
+    @property
+    def bibjson_abstract(self) -> typing.List[dict]:
+        return self._data["bibjson"].get("abstract")
 
     @property
     def bibjson_author(self) -> typing.List[dict]:
@@ -96,6 +101,11 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
     def error_response(self, response: dict) -> str:
         return response.get("error", "")
+
+    def _add_bibjson_abstract(self, article: scielodocument.Article):
+        abstract = article.original_abstract()
+        if abstract:
+            self._data["bibjson"]["abstract"] = abstract
 
     def _add_bibjson_author(self, article: scielodocument.Article):
         if not article.authors:
