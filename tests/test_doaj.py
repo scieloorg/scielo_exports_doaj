@@ -114,17 +114,8 @@ class DOAJExporterXyloseArticleTest(TestCase):
         )
 
     def test_bibjson_title(self):
-        title = self.article.original_title()
-        if (
-            not title and
-            self.article.translated_titles() and
-            len(self.article.translated_titles()) != 0
-        ):
-            item = [(k, v) for k, v in self.article.translated_titles().items()][0]
-            title = item[1]
-
         self.assertEqual(
-            title, self.doaj_document.bibjson_title
+            self.article.original_title(), self.doaj_document.bibjson_title
         )
 
     def test_post_request(self):

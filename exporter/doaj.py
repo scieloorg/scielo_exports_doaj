@@ -198,13 +198,6 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
     def _add_bibjson_title(self, article: scielodocument.Article):
         title = article.original_title()
-        if (
-            not title and
-            article.translated_titles() and
-            len(article.translated_titles()) != 0
-        ):
-            item = [(k, v) for k, v in article.translated_titles().items()][0]
-            title = item[1]
 
         if not title:
             section_code = article.section_code
