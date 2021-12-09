@@ -38,6 +38,12 @@ class DOAJExporterXyloseArticleTest(TestCase):
             self.doaj_document.last_updated,
         )
 
+    def test_bibjson_abstract(self):
+        abstract = self.article.original_abstract()
+        self.assertEqual(
+            abstract, self.doaj_document.bibjson_abstract
+        )
+
     def test_bibjson_author(self):
         for author in self.article.authors:
             with self.subTest(author=author):
@@ -169,6 +175,12 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
             doaj.DOAJExporterXyloseArticle(article=self.article)._api_key
         self.assertEqual("No DOAJ_API_KEY set", str(exc.exception))
+
+    def test_no_abstract_if_no_article_abstract(self):
+        del self.article.data["article"]["v83"]    # v83: abstract
+        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+        self.assertIsNone(doaj_document.bibjson_abstract)
 
     def test_raises_exception_if_no_author(self):
         del self.article.data["article"]["v10"]    # v10: authors
