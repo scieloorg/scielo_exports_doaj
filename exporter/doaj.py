@@ -166,10 +166,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
     def _add_bibjson_keywords(self, article: scielodocument.Article):
         keywords = article.keywords()
-        if keywords:
-            self._data["bibjson"].setdefault("keywords", [])
-            for keywords_to_send in keywords.values():
-                self._data["bibjson"]["keywords"] += keywords_to_send
+        if keywords and keywords.get(article.original_language()):
+            self._data["bibjson"]["keywords"] = keywords[article.original_language()]
 
     def _add_bibjson_link(self, article: scielodocument.Article):
         MIME_TYPE = {

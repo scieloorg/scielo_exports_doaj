@@ -85,9 +85,7 @@ class DOAJExporterXyloseArticleTest(TestCase):
 
     def test_bibjson_keywords(self):
         keywords = self.article.keywords()
-        expected = []
-        for kw_lang in keywords.values():
-            expected += kw_lang
+        expected = keywords.get(self.article.original_language())
         self.assertEqual(
             expected, self.doaj_document.bibjson_keywords
         )
