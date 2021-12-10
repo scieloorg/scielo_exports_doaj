@@ -180,23 +180,15 @@ def export_document(
 
 
 def extract_and_export_documents(
+    get_document:callable,
     index:str,
     collection:str,
     output_path:str,
     pids:typing.List[str],
-    connection:str=None,
-    domain:str=None,
 ) -> None:
-    params = {}
-    if connection:
-        params["connection"] = connection
-    if domain:
-        params["domain"] = domain
-
-    am_client = AMClient(**params) if params else AMClient()
 
     jobs = [
-        {"get_document": am_client.document, "index": index, "collection": collection, "pid": pid}
+        {"get_document": get_document, "index": index, "collection": collection, "pid": pid}
         for pid in pids
     ]
 
@@ -324,6 +316,15 @@ def main_exporter(sargs):
     params = {
         "index": args.index, "collection": args.collection, "output_path": args.output
     }
+    am_client_params = {}
+    if args.connection:
+        am_client_params["connection"] = args.connection
+    if args.domain:
+        am_client_params["domain"] = args.domain
+
+    am_client = AMClient(**am_client_params) if am_client_params else AMClient()
+    params["get_document"] = am_client.document
+
     if args.pid:
         params["pids"] = [args.pid]
     elif args.pids:
