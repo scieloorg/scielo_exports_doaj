@@ -4,6 +4,7 @@ import logging
 import argparse
 import pathlib
 import json
+import datetime
 
 import tenacity
 import requests
@@ -223,11 +224,75 @@ def extract_and_export_documents(
     return
 
 
+def articlemeta_parser(sargs):
+    """Parser para capturar informações sobre conexão com o Article Meta"""
+
+    class FutureDateAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            date = datetime.datetime.strptime(values, "%d-%m-%Y")
+            today = datetime.datetime.today()
+            if date > today:
+                setattr(namespace, self.dest, today.strftime("%d-%m-%Y"))
+            else:
+                setattr(namespace, self.dest, values)
+
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--from-date",
+        type=str,
+        action=FutureDateAction,
+        dest="from_date",
+        help="Data inicial de processamento",
+    )
+
+    parser.add_argument(
+        "--until-date",
+        type=str,
+        dest="until_date",
+        action=FutureDateAction,
+        help="Data final de processamento",
+    )
+
+    parser.add_argument(
+        "--collection",
+        type=str,
+        help="Coleção do(s) documento(s) publicados",
+    )
+
+    parser.add_argument(
+        "--pid",
+        type=str,
+        help="PID do documento",
+    )
+
+    parser.add_argument(
+        "--pids",
+        type=pathlib.Path,
+        help="Caminho para arquivo com lista de PIDs de documentos a exportar",
+    )
+
+    parser.add_argument(
+        "--connection",
+        type=str,
+        help="Tipo de conexão com Article Meta: Restful ou Thrift",
+    )
+
+    parser.add_argument(
+        "--domain",
+        type=str,
+        help="Endereço de conexão com Article Meta",
+    )
+
+    return parser
+
+
 def main_exporter(sargs):
     parser = argparse.ArgumentParser(description="Exportador de documentos")
     parser.add_argument("--loglevel", default="INFO")
     parser.add_argument(
         "--output",
+        type=pathlib.Path,
         required=True,
         help="Caminho para arquivo de resultado da exportação",
     )
@@ -235,24 +300,7 @@ def main_exporter(sargs):
     subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
 
     doaj_parser = subparsers.add_parser(
-        "doaj", help="Base de indexação DOAJ"
-    )
-
-    doaj_parser.add_argument(
-        "--collection",
-        type=str,
-        help="Coleção do(s) documento(s) publicados",
-    )
-
-    doaj_parser.add_argument(
-        "--pid",
-        type=str,
-        help="PID do documento",
-    )
-
-    doaj_parser.add_argument(
-        "--pids",
-        help="Caminho para arquivo com lista de PIDs de documentos a exportar",
+        "doaj", help="Base de indexação DOAJ", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)

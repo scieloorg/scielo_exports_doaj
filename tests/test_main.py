@@ -2,6 +2,7 @@ import tempfile
 import pathlib
 import json
 from unittest import TestCase, mock
+from datetime import datetime, timedelta
 
 import vcr
 import articlemeta.client as articlemeta_client
@@ -15,6 +16,7 @@ from exporter.main import (
     IndexExporterHTTPError,
     XyloseArticleExporterAdapter,
     export_document,
+    articlemeta_parser,
     main_exporter,
 )
 
@@ -368,6 +370,145 @@ class ExtractAndExportDocumentsTest(TestCase):
             for pid in fake_pids:
                 with self.subTest(pid=pid):
                     self.assertIn(pid, file_content)
+
+
+class ArticleMetaParserTest(TestCase):
+    def test_from_date(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+
+    def test_from_date_and_collection(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--collection",
+            "spa"
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.collection, "spa")
+
+    def test_from_and_until_date(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--until-date",
+            "07-01-2021",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.until_date, "07-01-2021")
+
+    def test_from_and_until_date_and_collection(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--until-date",
+            "07-01-2021",
+            "--collection",
+            "spa"
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.until_date, "07-01-2021")
+        self.assertEqual(args.collection, "spa")
+
+    def test_invalid_until_date_raises_exception(self):
+        sargs = [
+            "--until-date",
+            "123456",
+        ]
+        with self.assertRaises(ValueError) as exc:
+            parser = articlemeta_parser(sargs)
+            args = parser.parse_args(sargs)
+
+    def test_future_from_date_is_changed_to_today(self):
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        sargs = [
+            "--from-date",
+            next_week.strftime("%d-%m-%Y"),
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, today.strftime("%d-%m-%Y"))
+
+    def test_future_until_date_is_changed_to_today(self):
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        sargs = [
+            "--until-date",
+            next_week.strftime("%d-%m-%Y"),
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.until_date, today.strftime("%d-%m-%Y"))
+
+    def test_collection_and_pid(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pid",
+            "S0100-19651998000200002",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(args.pid, "S0100-19651998000200002")
+        self.assertIsNone(args.from_date)
+        self.assertIsNone(args.until_date)
+
+    def test_collection_and_pids(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertIsNone(args.from_date)
+        self.assertIsNone(args.until_date)
+
+    def test_connection(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+            "--connection",
+            "thrift",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertEqual(str(args.connection), "thrift")
+
+    def test_connection(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+            "--domain",
+            "http://anotheram.scielo.org",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertEqual(str(args.domain), "http://anotheram.scielo.org")
 
 
 class MainExporterTest(TestCase):
