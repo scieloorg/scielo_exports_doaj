@@ -182,24 +182,23 @@ def export_document(
 def extract_and_export_documents(
     get_document:callable,
     index:str,
-    collection:str,
-    output_path:str,
-    pids:typing.List[str],
+    output_path:pathlib.Path,
+    pids_by_collection:typing.Dict[str, list],
 ) -> None:
 
     jobs = [
         {"get_document": get_document, "index": index, "collection": collection, "pid": pid}
+        for collection, pids in pids_by_collection.items()
         for pid in pids
     ]
 
-    with tqdm(total=len(pids)) as pbar:
+    with tqdm(total=len(jobs)) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
 
-        def write_result(result, path=output_path):
-            output_file = pathlib.Path(path)
-            with output_file.open("a", encoding="utf-8") as fp:
+        def write_result(result, path:pathlib.Path=output_path):
+            with path.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(result) + "\n")
 
         def log_exception(exception, job, logger=logger):
@@ -313,9 +312,8 @@ def main_exporter(sargs):
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {
-        "index": args.index, "collection": args.collection, "output_path": args.output
-    }
+    params = {"index": args.index, "output_path": args.output}
+
     am_client_params = {}
     if args.connection:
         am_client_params["connection"] = args.connection
@@ -326,9 +324,20 @@ def main_exporter(sargs):
     params["get_document"] = am_client.document
 
     if args.pid:
-        params["pids"] = [args.pid]
+        if not args.collection:
+            raise OriginDataFilterError(
+                "Coleção é obrigatória para exportação de um PID"
+            )
+
+        params["pids_by_collection"] = {args.collection: [args.pid]}
     elif args.pids:
-        pidsfile = pathlib.Path(args.pids)
-        params["pids"] = [pid for pid in pidsfile.read_text().split("\n") if pid]
+        if not args.collection:
+            raise OriginDataFilterError(
+                "Coleção é obrigatória para exportação de lista de PIDs"
+            )
+
+        params["pids_by_collection"] = {
+            args.collection: [pid for pid in args.pids.read_text().split("\n") if pid]
+        }
 
     extract_and_export_documents(**params)
