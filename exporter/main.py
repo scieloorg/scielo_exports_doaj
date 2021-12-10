@@ -31,6 +31,10 @@ class IndexExporterHTTPError(Exception):
     pass
 
 
+class OriginDataFilterError(Exception):
+    pass
+
+
 class AMClient:
     def __init__(self, connection: str = None, domain: str = None):
         self._client = self._get_client(connection, domain)
@@ -304,6 +308,13 @@ def main_exporter(sargs):
     )
 
     args = parser.parse_args(sargs)
+
+    if args.index == "doaj" and not (
+        args.from_date or args.until_date or args.pid or args.pids
+    ):
+        raise OriginDataFilterError(
+            "Informe ao menos uma das datas (from-date ou until-date), pid ou pids"
+        )
 
     # Change Logger level
     level = getattr(logging, args.loglevel.upper())

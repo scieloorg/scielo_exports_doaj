@@ -14,6 +14,7 @@ from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidIndexExporter,
     IndexExporterHTTPError,
+    OriginDataFilterError,
     XyloseArticleExporterAdapter,
     export_document,
     articlemeta_parser,
@@ -514,7 +515,22 @@ class ArticleMetaParserTest(TestCase):
 class MainExporterTest(TestCase):
     @mock.patch("exporter.main.extract_and_export_documents")
     def test_extract_and_export_documents_called_with_collection_and_pid(
+    def test_raises_exception_if_no_dates_nor_pids(
         self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(OriginDataFilterError) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                ]
+            )
+        self.assertEqual(
+            str(exc.exception),
+            "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
+        )
+
     ):
         main_exporter(
             [
