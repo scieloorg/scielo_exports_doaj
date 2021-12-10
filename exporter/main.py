@@ -13,7 +13,7 @@ from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
-from exporter import interfaces, doaj, config
+from exporter import interfaces, doaj, config, utils
 
 
 logger = logging.getLogger(__name__)
@@ -339,5 +339,19 @@ def main_exporter(sargs):
         params["pids_by_collection"] = {
             args.collection: [pid for pid in args.pids.read_text().split("\n") if pid]
         }
+    else:
+        filter = {}
+        if args.collection:
+            filter["collection"] = args.collection
+        if args.from_date:
+            filter["from_date"] = utils.get_valid_datetime(args.from_date)
+        if args.until_date:
+            filter["until_date"] = utils.get_valid_datetime(args.until_date)
+
+        params["pids_by_collection"] = {}
+        docs = am_client.documents_identifiers(**filter)
+        for doc in docs or []:
+            params["pids_by_collection"].setdefault(doc["collection"], [])
+            params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
     extract_and_export_documents(**params)
