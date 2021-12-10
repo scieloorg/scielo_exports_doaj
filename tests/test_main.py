@@ -244,88 +244,55 @@ class ExportDocumentTest(TestCase):
         MockXyloseArticleExporterAdapter.return_value.export.assert_called_once()
 
 
-@vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+@mock.patch("exporter.main.PoisonPill")
+@mock.patch("exporter.main.export_document")
 class ExtractAndExportDocumentsTest(TestCase):
-    @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.export_document")
-    def test_instanciates_AMClient(self, mk_export_document, MockAMClient):
-        mk_export_document.return_value = {}
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            connection="thrift",
-        )
-        MockAMClient.assert_called_with(connection="thrift")
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
 
-    @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.export_document")
-    def test_instanciates_AMClient_with_another_domain(
-        self, mk_export_document, MockAMClient
-    ):
-        mk_export_document.return_value = {}
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            domain="http://anotheram.scielo.org",
-        )
-        MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
-
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_export_document_called(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         mk_export_document.return_value = {}
         extract_and_export_documents(
+            get_document=self.mk_get_document,
             index="doaj",
             collection="scl",
             output_path="output.log",
             pids=["S0100-19651998000200002"],
-            connection="thrift",
         )
         mk_export_document.assert_called_with(
-            get_document=mk_get_document,
+            get_document=self.mk_get_document,
             index="doaj",
             collection="scl",
             pid="S0100-19651998000200002",
             poison_pill=MockPoisonPill(),
         )
 
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_export_document_called_for_each_document(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         mk_export_document.return_value = {}
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
         extract_and_export_documents(
+            get_document=self.mk_get_document,
             index="doaj",
             collection="scl",
             output_path="output.log",
             pids=pids,
-            connection="thrift",
         )
         for pid in pids:
             mk_export_document.assert_any_call(
-                get_document=mk_get_document,
+                get_document=self.mk_get_document,
                 index="doaj",
                 collection="scl",
                 pid=pid,
                 poison_pill=MockPoisonPill(),
             )
 
-    @mock.patch("exporter.main.logger.error")
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_logs_error_if_export_document_raises_exception(
-        self, mk_get_document, mk_export_document, MockPoisonPill, mk_logger_error
+        self, mk_export_document, MockPoisonPill
     ):
         exc = ArticleMetaDocumentNotFound()
         mk_export_document.side_effect = exc
@@ -342,11 +309,8 @@ class ExtractAndExportDocumentsTest(TestCase):
             exc
         )
 
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_all_docs_successfully_posted_are_recorded_to_file(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
         fake_exported_docs = [
@@ -361,11 +325,11 @@ class ExtractAndExportDocumentsTest(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             output_file = pathlib.Path(tmpdirname) / "output.log"
             extract_and_export_documents(
+                get_document=self.mk_get_document,
                 index="doaj",
                 collection="scl",
                 output_path=output_file,
                 pids=fake_pids,
-                connection="thrift",
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -530,6 +494,44 @@ class MainExporterTest(TestCase):
             str(exc.exception),
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
         )
+
+    @mock.patch("exporter.main.AMClient")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_instanciates_AMClient(self, mk_extract_and_export_documents, MockAMClient):
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--connection",
+                "thrift",
+                "--collection",
+                "spa",
+                "--pid",
+                "S0100-19651998000200002",
+            ]
+        )
+        MockAMClient.assert_called_with(connection="thrift")
+
+    @mock.patch("exporter.main.AMClient")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_instanciates_AMClient_with_another_domain(
+        self, mk_extract_and_export_documents, MockAMClient
+    ):
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--domain",
+                "http://anotheram.scielo.org",
+                "--collection",
+                "spa",
+                "--pid",
+                "S0100-19651998000200002",
+            ]
+        )
+        MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
     ):
         main_exporter(
