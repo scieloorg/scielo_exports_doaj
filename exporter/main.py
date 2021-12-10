@@ -46,6 +46,22 @@ class AMClient:
     def document(self, collection: str, pid: str) -> scielodocument.Article:
         return self._client.document(collection=collection, code=pid)
 
+    def documents_identifiers(
+        self,
+        collection: str = None,
+        from_date: datetime = None,
+        until_date: datetime = None,
+    ) -> typing.List[dict]:
+        filter = {}
+        if collection:
+            filter["collection"] = collection
+        if from_date:
+            filter["from_date"] = from_date.strftime("%Y-%m-%d")
+        if until_date:
+            filter["until_date"] = until_date.strftime("%Y-%m-%d")
+
+        return self._client.documents_by_identifiers(only_identifiers=True, **filter)
+
 
 class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     index_exporter: interfaces.IndexExporterInterface

@@ -52,6 +52,64 @@ class AMClientTest(TestCase):
         self.assertEqual(document.collection_acronym, "scl")
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
 
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(
+            collection="scl", from_date=datetime(2021, 8, 2), until_date=datetime(2021, 8, 2)
+        )
+        mk_documents_by_identifiers.assert_called_once_with(
+            collection="scl",
+            from_date="2021-08-02",
+            until_date="2021-08-02",
+            only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_collection(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(collection="scl")
+        mk_documents_by_identifiers.assert_called_once_with(
+            collection="scl", only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_from_date(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(from_date=datetime(2021, 8, 2))
+        mk_documents_by_identifiers.assert_called_once_with(
+            from_date="2021-08-02", only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_until_date(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(until_date=datetime(2021, 8, 2))
+        mk_documents_by_identifiers.assert_called_once_with(
+            until_date="2021-08-02", only_identifiers=True,
+        )
+
+    @vcr.use_cassette(
+        "tests/fixtures/vcr_cassettes/documents-identifiers.yml",
+        record_mode="new_episodes",
+    )
+    def test_get_documents_identifiers_from_collection_from_and_until_dates(self):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(
+            collection="scl", from_date=datetime(2021, 8, 2), until_date=datetime(2021, 8, 2)
+        )
+        self.assertIsNotNone(documents)
+        docs = [document["collection"] for document in documents]
+        self.assertEqual(docs[0], "scl")
+
 
 class XyloseArticleExporterAdapterTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
