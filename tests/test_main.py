@@ -629,4 +629,121 @@ class MainExporterTest(TestCase):
             pids_by_collection={"spa": pids},
         )
 
+    @mock.patch("exporter.main.utils.get_valid_datetime")
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_calls_get_valid_datetime_with_dates(
+        self,
+        mk_extract_and_export_documents,
+        mk_documents_identifiers,
+        mk_get_valid_datetime,
+    ):
+        tests_args = [
+            ["--from-date", "01-01-2021",],
+            ["--until-date", "02-01-2021",],
+            ["--from-date", "01-01-2021", "--until-date", "07-01-2021",],
+        ]
+
+        for args in tests_args:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                ] +
+                args
+            )
+
+        mk_get_valid_datetime.assert_has_calls(
+            [
+                mock.call("01-01-2021"),
+                mock.call("02-01-2021"),
+                mock.call("01-01-2021"),
+                mock.call("07-01-2021"),
+            ]
+        )
+
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_calls_am_client_documents_identifiers_with_args(
+        self, mk_extract_and_export_documents, mk_documents_identifiers
+    ):
+        tests_args_and_calls = [
+            (["--from-date", "01-01-2021",], {"from_date": datetime(2021, 1, 1, 0, 0)}),
+            (
+                ["--until-date", "02-01-2021",],
+                {"until_date": datetime(2021, 1, 2, 0, 0)},
+            ),
+            (
+                ["--from-date", "01-01-2021", "--until-date", "07-01-2021",],
+                {"from_date": datetime(2021, 1, 1), "until_date": datetime(2021, 1, 7)},
+            ),
+            (
+                ["--collection", "spa", "--from-date", "01-01-2021",],
+                {"collection": "spa", "from_date": datetime(2021, 1, 1)},
+            ),
+            (
+                ["--collection", "spa", "--until-date", "02-01-2021",],
+                {"collection": "spa", "until_date": datetime(2021, 1, 2)},
+            ),
+        ]
+
+        for args, call_params in tests_args_and_calls:
+            with self.subTest(args=args, call_params=call_params):
+                main_exporter(
+                    [
+                        "--output",
+                        "output.log",
+                        "doaj",
+                    ] +
+                    args
+                )
+                mk_documents_identifiers.assert_called_with(**call_params)
+
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch.object(AMClient, "document")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_identifiers_from_date_search(
+        self, mk_extract_and_export_documents, mk_document, mk_documents_identifiers
+    ):
+        mk_documents_identifiers.return_value = [
+            {
+                'doi': 'doi-123456',
+                'collection': 'scl',
+                'processing_date': '2021-12-06',
+                'code': 'S0101-01019000090090097',
+            },
+            {
+                'doi': 'doi-654321',
+                'collection': 'arg',
+                'processing_date': '2021-12-06',
+                'code': 'S0202-01019000090090098',
+            },
+            {
+                'doi': 'doi-162534',
+                'collection': 'cub',
+                'processing_date': '2021-12-06',
+                'code': 'S0303-01019000090090099',
+            },
+        ]
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--from-date",
+                "01-01-2021",
+                "--until-date",
+                "07-01-2021",
+            ],
+        )
+        mk_extract_and_export_documents.assert_called_once_with(
+            get_document=mk_document,
+            index="doaj",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={
+                "scl": ["S0101-01019000090090097"],
+                "arg": ["S0202-01019000090090098"],
+                "cub": ["S0303-01019000090090099"],
+            },
         )
