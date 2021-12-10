@@ -258,9 +258,8 @@ class ExtractAndExportDocumentsTest(TestCase):
         extract_and_export_documents(
             get_document=self.mk_get_document,
             index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"scl": ["S0100-19651998000200002"]},
         )
         mk_export_document.assert_called_with(
             get_document=self.mk_get_document,
@@ -278,9 +277,8 @@ class ExtractAndExportDocumentsTest(TestCase):
         extract_and_export_documents(
             get_document=self.mk_get_document,
             index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=pids,
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"scl": pids},
         )
         for pid in pids:
             mk_export_document.assert_any_call(
@@ -296,18 +294,18 @@ class ExtractAndExportDocumentsTest(TestCase):
     ):
         exc = ArticleMetaDocumentNotFound()
         mk_export_document.side_effect = exc
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            connection="thrift",
-        )
-        mk_logger_error.assert_called_once_with(
-            "Não foi possível exportar documento '%s': '%s'.",
-            "S0100-19651998000200002",
-            exc
-        )
+        with mock.patch("exporter.main.logger.error") as mk_logger_error:
+            extract_and_export_documents(
+                get_document=self.mk_get_document,
+                index="doaj",
+                output_path=pathlib.Path("output.log"),
+                pids_by_collection={"scl": ["S0100-19651998000200001"]},
+            )
+            mk_logger_error.assert_called_once_with(
+                "Não foi possível exportar documento '%s': '%s'.",
+                "S0100-19651998000200001",
+                exc
+            )
 
     def test_all_docs_successfully_posted_are_recorded_to_file(
         self, mk_export_document, MockPoisonPill
@@ -327,9 +325,8 @@ class ExtractAndExportDocumentsTest(TestCase):
             extract_and_export_documents(
                 get_document=self.mk_get_document,
                 index="doaj",
-                collection="scl",
                 output_path=output_file,
-                pids=fake_pids,
+                pids_by_collection={"scl": fake_pids},
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -478,7 +475,6 @@ class ArticleMetaParserTest(TestCase):
 
 class MainExporterTest(TestCase):
     @mock.patch("exporter.main.extract_and_export_documents")
-    def test_extract_and_export_documents_called_with_collection_and_pid(
     def test_raises_exception_if_no_dates_nor_pids(
         self, mk_extract_and_export_documents
     ):
@@ -494,6 +490,52 @@ class MainExporterTest(TestCase):
             str(exc.exception),
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
         )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_pid_and_no_collection(
+        self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(OriginDataFilterError) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                    "--pid",
+                    "S0100-19651998000200002",
+                ]
+            )
+        self.assertEqual(
+            str(exc.exception),
+            "Coleção é obrigatória para exportação de um PID",
+        )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_pids_and_no_collection(
+        self, mk_extract_and_export_documents
+    ):
+        pids = [
+            "S0100-19651998000200001",
+            "S0100-19651998000200002",
+            "S0100-19651998000200003",
+        ]
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            pids_file = pathlib.Path(tmpdirname) / "pids.txt"
+            pids_file.write_text("\n".join(pids))
+            with self.assertRaises(OriginDataFilterError) as exc:
+                main_exporter(
+                    [
+                        "--output",
+                        "output.log",
+                        "doaj",
+                        "--pids",
+                        str(pids_file),
+                    ]
+                )
+            self.assertEqual(
+                str(exc.exception),
+                "Coleção é obrigatória para exportação de lista de PIDs",
+            )
 
     @mock.patch("exporter.main.AMClient")
     @mock.patch("exporter.main.extract_and_export_documents")
@@ -533,6 +575,10 @@ class MainExporterTest(TestCase):
         )
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
+    @mock.patch.object(AMClient, "document")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_collection_and_pid(
+        self, mk_extract_and_export_documents, mk_document
     ):
         main_exporter(
             [
@@ -546,15 +592,16 @@ class MainExporterTest(TestCase):
             ]
         )
         mk_extract_and_export_documents.assert_called_with(
+            get_document=mk_document,
             index="doaj",
-            collection="spa",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"spa": ["S0100-19651998000200002"]},
         )
 
+    @mock.patch.object(AMClient, "document")
     @mock.patch("exporter.main.extract_and_export_documents")
     def test_extract_and_export_documents_called_with_collection_and_pids_from_file(
-        self, mk_extract_and_export_documents
+        self, mk_extract_and_export_documents, mk_document
     ):
         pids = [
             "S0100-19651998000200001",
@@ -576,5 +623,10 @@ class MainExporterTest(TestCase):
                 ]
             )
         mk_extract_and_export_documents.assert_called_with(
-            index="doaj", collection="spa", output_path="output.log", pids=pids
+            get_document=mk_document,
+            index="doaj",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"spa": pids},
+        )
+
         )
