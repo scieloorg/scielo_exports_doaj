@@ -292,10 +292,15 @@ def main_exporter(sargs):
         help="Caminho para arquivo de resultado da exportação",
     )
 
-    subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
+    subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
 
-    doaj_parser = subparsers.add_parser(
-        "doaj", help="Base de indexação DOAJ", parents=[articlemeta_parser(sargs)],
+    doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
+    doaj_export_subparsers = doaj_parser.add_subparsers(
+        title="DOAJ Command", dest="doaj_command", required=True,
+    )
+
+    doaj_export_subparsers.add_parser(
+        "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)
