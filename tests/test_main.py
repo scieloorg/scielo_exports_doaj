@@ -475,6 +475,31 @@ class ArticleMetaParserTest(TestCase):
 
 class MainExporterTest(TestCase):
     @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_no_index_command(
+        self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(SystemExit) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                ]
+            )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_no_doaj_command(
+        self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(SystemExit) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                ]
+            )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
     def test_raises_exception_if_no_dates_nor_pids(
         self, mk_extract_and_export_documents
     ):
@@ -484,6 +509,7 @@ class MainExporterTest(TestCase):
                     "--output",
                     "output.log",
                     "doaj",
+                    "export",
                 ]
             )
         self.assertEqual(
@@ -501,6 +527,7 @@ class MainExporterTest(TestCase):
                     "--output",
                     "output.log",
                     "doaj",
+                    "export",
                     "--pid",
                     "S0100-19651998000200002",
                 ]
@@ -528,6 +555,7 @@ class MainExporterTest(TestCase):
                         "--output",
                         "output.log",
                         "doaj",
+                        "export",
                         "--pids",
                         str(pids_file),
                     ]
@@ -545,6 +573,7 @@ class MainExporterTest(TestCase):
                 "--output",
                 "output.log",
                 "doaj",
+                "export",
                 "--connection",
                 "thrift",
                 "--collection",
@@ -565,6 +594,7 @@ class MainExporterTest(TestCase):
                 "--output",
                 "output.log",
                 "doaj",
+                "export",
                 "--domain",
                 "http://anotheram.scielo.org",
                 "--collection",
@@ -585,6 +615,7 @@ class MainExporterTest(TestCase):
                 "--output",
                 "output.log",
                 "doaj",
+                "export",
                 "--collection",
                 "spa",
                 "--pid",
@@ -616,6 +647,7 @@ class MainExporterTest(TestCase):
                     "--output",
                     "output.log",
                     "doaj",
+                    "export",
                     "--collection",
                     "spa",
                     "--pids",
@@ -650,6 +682,7 @@ class MainExporterTest(TestCase):
                     "--output",
                     "output.log",
                     "doaj",
+                    "export",
                 ] +
                 args
             )
@@ -695,6 +728,7 @@ class MainExporterTest(TestCase):
                         "--output",
                         "output.log",
                         "doaj",
+                        "export",
                     ] +
                     args
                 )
@@ -731,6 +765,7 @@ class MainExporterTest(TestCase):
                 "--output",
                 "output.log",
                 "doaj",
+                "export",
                 "--from-date",
                 "01-01-2021",
                 "--until-date",
