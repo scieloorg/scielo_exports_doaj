@@ -473,7 +473,7 @@ class ArticleMetaParserTest(TestCase):
         self.assertEqual(str(args.domain), "http://anotheram.scielo.org")
 
 
-class MainExporterTest(TestCase):
+class MainExporterTestMixin:
     @mock.patch("exporter.main.extract_and_export_documents")
     def test_raises_exception_if_no_index_command(
         self, mk_extract_and_export_documents
@@ -495,7 +495,7 @@ class MainExporterTest(TestCase):
                 [
                     "--output",
                     "output.log",
-                    "doaj",
+                    self.index,
                 ]
             )
 
@@ -508,8 +508,8 @@ class MainExporterTest(TestCase):
                 [
                     "--output",
                     "output.log",
-                    "doaj",
-                    "export",
+                    self.index,
+                    self.index_command,
                 ]
             )
         self.assertEqual(
@@ -526,8 +526,8 @@ class MainExporterTest(TestCase):
                 [
                     "--output",
                     "output.log",
-                    "doaj",
-                    "export",
+                    self.index,
+                    self.index_command,
                     "--pid",
                     "S0100-19651998000200002",
                 ]
@@ -554,8 +554,8 @@ class MainExporterTest(TestCase):
                     [
                         "--output",
                         "output.log",
-                        "doaj",
-                        "export",
+                        self.index,
+                        self.index_command,
                         "--pids",
                         str(pids_file),
                     ]
@@ -572,8 +572,8 @@ class MainExporterTest(TestCase):
             [
                 "--output",
                 "output.log",
-                "doaj",
-                "export",
+                self.index,
+                self.index_command,
                 "--connection",
                 "thrift",
                 "--collection",
@@ -593,8 +593,8 @@ class MainExporterTest(TestCase):
             [
                 "--output",
                 "output.log",
-                "doaj",
-                "export",
+                self.index,
+                self.index_command,
                 "--domain",
                 "http://anotheram.scielo.org",
                 "--collection",
@@ -614,8 +614,8 @@ class MainExporterTest(TestCase):
             [
                 "--output",
                 "output.log",
-                "doaj",
-                "export",
+                self.index,
+                self.index_command,
                 "--collection",
                 "spa",
                 "--pid",
@@ -624,7 +624,7 @@ class MainExporterTest(TestCase):
         )
         mk_extract_and_export_documents.assert_called_with(
             get_document=mk_document,
-            index="doaj",
+            index=self.index,
             output_path=pathlib.Path("output.log"),
             pids_by_collection={"spa": ["S0100-19651998000200002"]},
         )
@@ -646,8 +646,8 @@ class MainExporterTest(TestCase):
                 [
                     "--output",
                     "output.log",
-                    "doaj",
-                    "export",
+                    self.index,
+                    self.index_command,
                     "--collection",
                     "spa",
                     "--pids",
@@ -656,7 +656,7 @@ class MainExporterTest(TestCase):
             )
         mk_extract_and_export_documents.assert_called_with(
             get_document=mk_document,
-            index="doaj",
+            index=self.index,
             output_path=pathlib.Path("output.log"),
             pids_by_collection={"spa": pids},
         )
@@ -681,8 +681,8 @@ class MainExporterTest(TestCase):
                 [
                     "--output",
                     "output.log",
-                    "doaj",
-                    "export",
+                    self.index,
+                    self.index_command,
                 ] +
                 args
             )
@@ -727,8 +727,8 @@ class MainExporterTest(TestCase):
                     [
                         "--output",
                         "output.log",
-                        "doaj",
-                        "export",
+                        self.index,
+                        self.index_command,
                     ] +
                     args
                 )
@@ -764,8 +764,8 @@ class MainExporterTest(TestCase):
             [
                 "--output",
                 "output.log",
-                "doaj",
-                "export",
+                self.index,
+                self.index_command,
                 "--from-date",
                 "01-01-2021",
                 "--until-date",
@@ -774,7 +774,7 @@ class MainExporterTest(TestCase):
         )
         mk_extract_and_export_documents.assert_called_once_with(
             get_document=mk_document,
-            index="doaj",
+            index=self.index,
             output_path=pathlib.Path("output.log"),
             pids_by_collection={
                 "scl": ["S0101-01019000090090097"],
@@ -782,3 +782,8 @@ class MainExporterTest(TestCase):
                 "cub": ["S0303-01019000090090099"],
             },
         )
+
+
+class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
