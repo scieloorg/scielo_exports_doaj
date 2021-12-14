@@ -179,7 +179,7 @@ def export_document(
     return article_adapter.export()
 
 
-def extract_and_export_documents(
+def process_extracted_documents(
     get_document:callable,
     index:str,
     output_path:pathlib.Path,
@@ -359,4 +359,4 @@ def main_exporter(sargs):
             params["pids_by_collection"].setdefault(doc["collection"], [])
             params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
-    extract_and_export_documents(**params)
+    process_extracted_documents(**params)
