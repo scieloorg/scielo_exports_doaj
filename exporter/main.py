@@ -175,6 +175,7 @@ class JobExecutor:
 def process_document(
     get_document: callable,
     index: str,
+    index_command: str,
     collection: str,
     pid: str,
     poison_pill: PoisonPill = PoisonPill(),
@@ -186,19 +187,26 @@ def process_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
-    article_adapter = XyloseArticleExporterAdapter(index, "export", document)
+    article_adapter = XyloseArticleExporterAdapter(index, index_command, document)
     return article_adapter.command_function()
 
 
 def process_extracted_documents(
     get_document:callable,
     index:str,
+    index_command:str,
     output_path:pathlib.Path,
     pids_by_collection:typing.Dict[str, list],
 ) -> None:
 
     jobs = [
-        {"get_document": get_document, "index": index, "collection": collection, "pid": pid}
+        {
+            "get_document": get_document,
+            "index": index,
+            "index_command": index_command,
+            "collection": collection,
+            "pid": pid,
+        }
         for collection, pids in pids_by_collection.items()
         for pid in pids
     ]
@@ -314,11 +322,13 @@ def main_exporter(sargs):
         "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
 
+    doaj_export_subparsers.add_parser(
+        "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
+    )
+
     args = parser.parse_args(sargs)
 
-    if args.index == "doaj" and not (
-        args.from_date or args.until_date or args.pid or args.pids
-    ):
+    if not (args.from_date or args.until_date or args.pid or args.pids):
         raise OriginDataFilterError(
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids"
         )
@@ -328,7 +338,11 @@ def main_exporter(sargs):
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {"index": args.index, "output_path": args.output}
+    params = {
+        "index": args.index,
+        "index_command": args.doaj_command,
+        "output_path": args.output,
+    }
 
     am_client_params = {}
     if args.connection:
