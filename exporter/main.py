@@ -23,7 +23,7 @@ class ArticleMetaDocumentNotFound(Exception):
     pass
 
 
-class InvalidIndexExporter(Exception):
+class InvalidExporterInitData(Exception):
     pass
 
 
@@ -71,11 +71,19 @@ class AMClient:
 class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     index_exporter: interfaces.IndexExporterInterface
 
-    def __init__(self, index: str, article: scielodocument.Article):
+    def __init__(self, index: str, command: str, article: scielodocument.Article):
         if index == "doaj":
             self.index_exporter = doaj.DOAJExporterXyloseArticle(article)
         else:
-            raise InvalidIndexExporter()
+            raise InvalidExporterInitData(f"Index informado inválido: {index}")
+
+        if command == "export":
+            self.command_function = self.export
+        elif command == "update":
+            self.command_function = self.update
+        else:
+            raise InvalidExporterInitData(f"Comando informado inválido: {command}")
+
         self.index = index
         self._pid = article.data.get("code", "")
 
@@ -178,8 +186,8 @@ def export_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
-    article_adapter = XyloseArticleExporterAdapter(index, document)
-    return article_adapter.export()
+    article_adapter = XyloseArticleExporterAdapter(index, "export", document)
+    return article_adapter.command_function()
 
 
 def process_extracted_documents(

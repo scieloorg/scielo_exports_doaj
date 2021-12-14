@@ -12,7 +12,7 @@ from xylose import scielodocument
 from exporter import AMClient, process_extracted_documents, doaj
 from exporter.main import (
     ArticleMetaDocumentNotFound,
-    InvalidIndexExporter,
+    InvalidExporterInitData,
     IndexExporterHTTPError,
     OriginDataFilterError,
     XyloseArticleExporterAdapter,
@@ -121,10 +121,19 @@ class XyloseArticleExporterAdapterTest(TestCase):
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
     def test_raises_exception_if_invalid_index(self):
-        with self.assertRaises(InvalidIndexExporter) as exc:
+        with self.assertRaises(InvalidExporterInitData) as exc:
             article_exporter = XyloseArticleExporterAdapter(
-                index="abc", article=self.article
+                index="abc", command="export", article=self.article
             )
+        self.assertEqual(str(exc.exception), "Index informado inválido: abc")
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    def test_raises_exception_if_invalid_command(self):
+        with self.assertRaises(InvalidExporterInitData) as exc:
+            article_exporter = XyloseArticleExporterAdapter(
+                index="doaj", command="abc", article=self.article
+            )
+        self.assertEqual(str(exc.exception), "Comando informado inválido: abc")
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
@@ -140,7 +149,7 @@ class XyloseArticleExporterAdapterTest(TestCase):
                 "json": {"field": "value"},
             }
             article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-                index="doaj", article=self.article
+                index="doaj", command="export", article=self.article
             )
             article_exporter.export()
             mk_requests.post.assert_called_once_with(
@@ -162,7 +171,7 @@ class XyloseArticleExporterAdapterTest(TestCase):
         }
 
         article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", article=self.article
+            index="doaj", command="export", article=self.article
         )
         with self.assertRaises(IndexExporterHTTPError) as exc:
             article_exporter.export()
@@ -179,7 +188,7 @@ class XyloseArticleExporterAdapterTest(TestCase):
             "status": "OK",
         }
         article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", article=self.article
+            index="doaj", command="export", article=self.article
         )
         ret = article_exporter.export()
         self.assertEqual(
@@ -224,24 +233,33 @@ class ExportDocumentTest(TestCase):
             )
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter")
-    def test_XyloseArticleExporterAdapter_instance_created(self, MockXyloseArticleExporterAdapter):
+    def test_XyloseArticleExporterAdapter_instance_created(
+        self, MockXyloseArticleExporterAdapter
+    ):
         document = mock.Mock(spec=scielodocument.Article, data={"id": "document-1234"})
         mk_document = mock.Mock(return_value=document)
         export_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
-        MockXyloseArticleExporterAdapter.assert_called_once_with("doaj", document)
+        MockXyloseArticleExporterAdapter.assert_called_once_with(
+            "doaj", "export", document,
+        )
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter", autospec=True)
-    def test_calls_XyloseArticleExporterAdapter_export(self, MockXyloseArticleExporterAdapter):
+    def test_calls_XyloseArticleExporterAdapter_command_function(
+        self, MockXyloseArticleExporterAdapter
+    ):
         document = mock.create_autospec(
             spec=scielodocument.Article, data={"id": "document-1234"}
         )
         mk_document = mock.Mock(return_value=document)
+        mk_command_function = mock.Mock(return_value={})
+        MockXyloseArticleExporterAdapter.return_value.command_function = \
+            mk_command_function
         export_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
-        MockXyloseArticleExporterAdapter.return_value.export.assert_called_once()
+        mk_command_function.assert_called_once()
 
 
 @mock.patch("exporter.main.PoisonPill")
