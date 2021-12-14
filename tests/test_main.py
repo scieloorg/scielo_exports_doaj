@@ -16,7 +16,7 @@ from exporter.main import (
     IndexExporterHTTPError,
     OriginDataFilterError,
     XyloseArticleExporterAdapter,
-    export_document,
+    process_document,
     articlemeta_parser,
     main_exporter,
 )
@@ -206,7 +206,7 @@ class ExportDocumentTest(TestCase):
     @mock.patch("exporter.main.XyloseArticleExporterAdapter")
     def test_amclient_document_called(self, MockXyloseArticleExporterAdapter):
         mk_document = mock.Mock()
-        export_document(
+        process_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
         mk_document.assert_called_with(collection="scl", pid="S0100-19651998000200002")
@@ -214,7 +214,7 @@ class ExportDocumentTest(TestCase):
     def test_raises_exception_if_get_document_raises_exception(self):
         mk_document = mock.Mock(side_effect=Exception("No document found"))
         with self.assertRaises(Exception) as exc_info:
-            export_document(
+            process_document(
                 mk_document,
                 index="doaj",
                 collection="scl",
@@ -225,7 +225,7 @@ class ExportDocumentTest(TestCase):
     def test_raises_exception_if_no_document_returned(self):
         mk_document = mock.Mock(return_value=None)
         with self.assertRaises(ArticleMetaDocumentNotFound) as exc_info:
-            export_document(
+            process_document(
                 mk_document,
                 index="doaj",
                 collection="scl",
@@ -238,7 +238,7 @@ class ExportDocumentTest(TestCase):
     ):
         document = mock.Mock(spec=scielodocument.Article, data={"id": "document-1234"})
         mk_document = mock.Mock(return_value=document)
-        export_document(
+        process_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
         MockXyloseArticleExporterAdapter.assert_called_once_with(
@@ -256,30 +256,30 @@ class ExportDocumentTest(TestCase):
         mk_command_function = mock.Mock(return_value={})
         MockXyloseArticleExporterAdapter.return_value.command_function = \
             mk_command_function
-        export_document(
+        process_document(
             mk_document, index="doaj", collection="scl", pid="S0100-19651998000200002"
         )
         mk_command_function.assert_called_once()
 
 
 @mock.patch("exporter.main.PoisonPill")
-@mock.patch("exporter.main.export_document")
+@mock.patch("exporter.main.process_document")
 class ProcessExtractedDocumentsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
 
-    def test_export_document_called(
-        self, mk_export_document, MockPoisonPill
+    def test_process_document_called(
+        self, mk_process_document, MockPoisonPill
     ):
-        mk_export_document.return_value = {}
+        mk_process_document.return_value = {}
         process_extracted_documents(
             get_document=self.mk_get_document,
             index="doaj",
             output_path=pathlib.Path("output.log"),
             pids_by_collection={"scl": ["S0100-19651998000200002"]},
         )
-        mk_export_document.assert_called_with(
+        mk_process_document.assert_called_with(
             get_document=self.mk_get_document,
             index="doaj",
             collection="scl",
@@ -287,10 +287,10 @@ class ProcessExtractedDocumentsTest(TestCase):
             poison_pill=MockPoisonPill(),
         )
 
-    def test_export_document_called_for_each_document(
-        self, mk_export_document, MockPoisonPill
+    def test_process_document_called_for_each_document(
+        self, mk_process_document, MockPoisonPill
     ):
-        mk_export_document.return_value = {}
+        mk_process_document.return_value = {}
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
         process_extracted_documents(
             get_document=self.mk_get_document,
@@ -299,7 +299,7 @@ class ProcessExtractedDocumentsTest(TestCase):
             pids_by_collection={"scl": pids},
         )
         for pid in pids:
-            mk_export_document.assert_any_call(
+            mk_process_document.assert_any_call(
                 get_document=self.mk_get_document,
                 index="doaj",
                 collection="scl",
@@ -307,11 +307,11 @@ class ProcessExtractedDocumentsTest(TestCase):
                 poison_pill=MockPoisonPill(),
             )
 
-    def test_logs_error_if_export_document_raises_exception(
-        self, mk_export_document, MockPoisonPill
+    def test_logs_error_if_process_document_raises_exception(
+        self, mk_process_document, MockPoisonPill
     ):
         exc = ArticleMetaDocumentNotFound()
-        mk_export_document.side_effect = exc
+        mk_process_document.side_effect = exc
         with mock.patch("exporter.main.logger.error") as mk_logger_error:
             process_extracted_documents(
                 get_document=self.mk_get_document,
@@ -326,7 +326,7 @@ class ProcessExtractedDocumentsTest(TestCase):
             )
 
     def test_all_docs_successfully_posted_are_recorded_to_file(
-        self, mk_export_document, MockPoisonPill
+        self, mk_process_document, MockPoisonPill
     ):
         fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
         fake_exported_docs = [
@@ -337,7 +337,7 @@ class ProcessExtractedDocumentsTest(TestCase):
             }
             for pid in fake_pids
         ]
-        mk_export_document.side_effect = fake_exported_docs
+        mk_process_document.side_effect = fake_exported_docs
         with tempfile.TemporaryDirectory() as tmpdirname:
             output_file = pathlib.Path(tmpdirname) / "output.log"
             process_extracted_documents(
