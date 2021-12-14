@@ -218,3 +218,6 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
     def export(self):
         pass
+
+    def update(self):
+        pass
