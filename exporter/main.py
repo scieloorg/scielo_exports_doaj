@@ -172,7 +172,7 @@ class JobExecutor:
                 raise
 
 
-def export_document(
+def process_document(
     get_document: callable,
     index: str,
     collection: str,
@@ -220,7 +220,7 @@ def process_extracted_documents(
             )
 
         executor = JobExecutor(
-            export_document,
+            process_document,
             max_workers=4,
             success_callback=write_result,
             exception_callback=log_exception,
