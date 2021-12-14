@@ -9,7 +9,7 @@ import articlemeta.client as articlemeta_client
 import requests
 from xylose import scielodocument
 
-from exporter import AMClient, extract_and_export_documents, doaj
+from exporter import AMClient, process_extracted_documents, doaj
 from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidIndexExporter,
@@ -246,7 +246,7 @@ class ExportDocumentTest(TestCase):
 
 @mock.patch("exporter.main.PoisonPill")
 @mock.patch("exporter.main.export_document")
-class ExtractAndExportDocumentsTest(TestCase):
+class ProcessExtractedDocumentsTest(TestCase):
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
@@ -255,7 +255,7 @@ class ExtractAndExportDocumentsTest(TestCase):
         self, mk_export_document, MockPoisonPill
     ):
         mk_export_document.return_value = {}
-        extract_and_export_documents(
+        process_extracted_documents(
             get_document=self.mk_get_document,
             index="doaj",
             output_path=pathlib.Path("output.log"),
@@ -274,7 +274,7 @@ class ExtractAndExportDocumentsTest(TestCase):
     ):
         mk_export_document.return_value = {}
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
-        extract_and_export_documents(
+        process_extracted_documents(
             get_document=self.mk_get_document,
             index="doaj",
             output_path=pathlib.Path("output.log"),
@@ -295,7 +295,7 @@ class ExtractAndExportDocumentsTest(TestCase):
         exc = ArticleMetaDocumentNotFound()
         mk_export_document.side_effect = exc
         with mock.patch("exporter.main.logger.error") as mk_logger_error:
-            extract_and_export_documents(
+            process_extracted_documents(
                 get_document=self.mk_get_document,
                 index="doaj",
                 output_path=pathlib.Path("output.log"),
@@ -322,7 +322,7 @@ class ExtractAndExportDocumentsTest(TestCase):
         mk_export_document.side_effect = fake_exported_docs
         with tempfile.TemporaryDirectory() as tmpdirname:
             output_file = pathlib.Path(tmpdirname) / "output.log"
-            extract_and_export_documents(
+            process_extracted_documents(
                 get_document=self.mk_get_document,
                 index="doaj",
                 output_path=output_file,
@@ -474,9 +474,9 @@ class ArticleMetaParserTest(TestCase):
 
 
 class MainExporterTestMixin:
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_raises_exception_if_no_index_command(
-        self, mk_extract_and_export_documents
+        self, mk_process_extracted_documents
     ):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
@@ -486,9 +486,9 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_raises_exception_if_no_doaj_command(
-        self, mk_extract_and_export_documents
+        self, mk_process_extracted_documents
     ):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
@@ -499,9 +499,9 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_raises_exception_if_no_dates_nor_pids(
-        self, mk_extract_and_export_documents
+        self, mk_process_extracted_documents
     ):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
@@ -517,9 +517,9 @@ class MainExporterTestMixin:
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
         )
 
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_raises_exception_if_pid_and_no_collection(
-        self, mk_extract_and_export_documents
+        self, mk_process_extracted_documents
     ):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
@@ -537,9 +537,9 @@ class MainExporterTestMixin:
             "Coleção é obrigatória para exportação de um PID",
         )
 
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_raises_exception_if_pids_and_no_collection(
-        self, mk_extract_and_export_documents
+        self, mk_process_extracted_documents
     ):
         pids = [
             "S0100-19651998000200001",
@@ -566,8 +566,8 @@ class MainExporterTestMixin:
             )
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.extract_and_export_documents")
-    def test_instanciates_AMClient(self, mk_extract_and_export_documents, MockAMClient):
+    @mock.patch("exporter.main.process_extracted_documents")
+    def test_instanciates_AMClient(self, mk_process_extracted_documents, MockAMClient):
         main_exporter(
             [
                 "--output",
@@ -585,9 +585,9 @@ class MainExporterTestMixin:
         MockAMClient.assert_called_with(connection="thrift")
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_instanciates_AMClient_with_another_domain(
-        self, mk_extract_and_export_documents, MockAMClient
+        self, mk_process_extracted_documents, MockAMClient
     ):
         main_exporter(
             [
@@ -606,9 +606,9 @@ class MainExporterTestMixin:
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.extract_and_export_documents")
-    def test_extract_and_export_documents_called_with_collection_and_pid(
-        self, mk_extract_and_export_documents, mk_document
+    @mock.patch("exporter.main.process_extracted_documents")
+    def test_process_extracted_documents_called_with_collection_and_pid(
+        self, mk_process_extracted_documents, mk_document
     ):
         main_exporter(
             [
@@ -622,7 +622,7 @@ class MainExporterTestMixin:
                 "S0100-19651998000200002",
             ]
         )
-        mk_extract_and_export_documents.assert_called_with(
+        mk_process_extracted_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             output_path=pathlib.Path("output.log"),
@@ -630,9 +630,9 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.extract_and_export_documents")
-    def test_extract_and_export_documents_called_with_collection_and_pids_from_file(
-        self, mk_extract_and_export_documents, mk_document
+    @mock.patch("exporter.main.process_extracted_documents")
+    def test_process_extracted_documents_called_with_collection_and_pids_from_file(
+        self, mk_process_extracted_documents, mk_document
     ):
         pids = [
             "S0100-19651998000200001",
@@ -654,7 +654,7 @@ class MainExporterTestMixin:
                     str(pids_file),
                 ]
             )
-        mk_extract_and_export_documents.assert_called_with(
+        mk_process_extracted_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             output_path=pathlib.Path("output.log"),
@@ -663,10 +663,10 @@ class MainExporterTestMixin:
 
     @mock.patch("exporter.main.utils.get_valid_datetime")
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_get_valid_datetime_with_dates(
         self,
-        mk_extract_and_export_documents,
+        mk_process_extracted_documents,
         mk_documents_identifiers,
         mk_get_valid_datetime,
     ):
@@ -697,9 +697,9 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.extract_and_export_documents")
+    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_am_client_documents_identifiers_with_args(
-        self, mk_extract_and_export_documents, mk_documents_identifiers
+        self, mk_process_extracted_documents, mk_documents_identifiers
     ):
         tests_args_and_calls = [
             (["--from-date", "01-01-2021",], {"from_date": datetime(2021, 1, 1, 0, 0)}),
@@ -736,9 +736,9 @@ class MainExporterTestMixin:
 
     @mock.patch.object(AMClient, "documents_identifiers")
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.extract_and_export_documents")
-    def test_extract_and_export_documents_called_with_identifiers_from_date_search(
-        self, mk_extract_and_export_documents, mk_document, mk_documents_identifiers
+    @mock.patch("exporter.main.process_extracted_documents")
+    def test_process_extracted_documents_called_with_identifiers_from_date_search(
+        self, mk_process_extracted_documents, mk_document, mk_documents_identifiers
     ):
         mk_documents_identifiers.return_value = [
             {
@@ -772,7 +772,7 @@ class MainExporterTestMixin:
                 "07-01-2021",
             ],
         )
-        mk_extract_and_export_documents.assert_called_once_with(
+        mk_process_extracted_documents.assert_called_once_with(
             get_document=mk_document,
             index=self.index,
             output_path=pathlib.Path("output.log"),

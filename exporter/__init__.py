@@ -1,7 +1,7 @@
 import sys
 import logging
 
-from .main import AMClient, extract_and_export_documents, main_exporter
+from .main import AMClient, process_extracted_documents, main_exporter
 
 __all__ = [
     "AMClient",
