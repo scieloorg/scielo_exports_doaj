@@ -114,6 +114,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             export_result["pid"] = self._pid
             return export_result
 
+    def update(self):
+        pass
+
 
 class PoisonPill:
     def __init__(self):
