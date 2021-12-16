@@ -30,6 +30,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def __init__(self, article: scielodocument.Article, now: callable = utils.utcnow()):
         self._set_api_config()
         self._data = {}
+        if article.data.get("doaj_id"):
+            self._data["id"] = article.data["doaj_id"]
         self._data["created_date"] = self._data["last_updated"] = now
         self._data.setdefault("bibjson", {})
         self._add_bibjson_abstract(article)
@@ -47,8 +49,19 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 raise DOAJExporterXyloseArticleNoRequestData(f"No {envvar} set")
             setattr(self, attr, config_var)
 
-        self.crud_article_url = f"{self._api_url}articles"
+        self.crud_article_put_url = f"{self._api_url}articles"
         self.search_journal_url = f"{self._api_url}search/journals/"
+
+    @property
+    def crud_article_url(self):
+        try:
+            url = f'{self._api_url}articles/{self._data["id"]}'
+        except KeyError:
+            raise DOAJExporterXyloseArticleNoRequestData(
+                "No DOAJ ID for article"
+            ) from None
+        else:
+            return url
 
     @property
     def created_date(self) -> typing.List[dict]:

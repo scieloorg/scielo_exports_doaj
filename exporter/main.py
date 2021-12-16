@@ -109,7 +109,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _export(self):
         resp = self._send_http_request(
-            requests.post, self.index_exporter.crud_article_url, **self.post_request
+            requests.post, self.index_exporter.crud_article_put_url, **self.post_request
         )
         try:
             resp.raise_for_status()

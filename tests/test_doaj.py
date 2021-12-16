@@ -13,6 +13,7 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+        self.article.data["doaj_id"] = "doaj-id-123456"
         self.doaj_document = doaj.DOAJExporterXyloseArticle(
             article=self.article, now=self._fake_utcnow()
         )
@@ -20,9 +21,15 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def _fake_utcnow(self):
         return "2021-01-01T00:00:00Z"
 
-    def test_crud_article_url(self):
+    def test_crud_article_put_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles",
+            self.doaj_document.crud_article_put_url,
+        )
+
+    def test_crud_article_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
             self.doaj_document.crud_article_url,
         )
 
@@ -175,6 +182,12 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
             doaj.DOAJExporterXyloseArticle(article=self.article)._api_key
         self.assertEqual("No DOAJ_API_KEY set", str(exc.exception))
+
+    def test_raises_exception_if_no_doaj_id(self):
+        self.article.data.pop("doaj_id", None)
+        with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
+            doaj.DOAJExporterXyloseArticle(article=self.article).crud_article_url
+        self.assertEqual("No DOAJ ID for article", str(exc.exception))
 
     def test_no_abstract_if_no_article_abstract(self):
         del self.article.data["article"]["v83"]    # v83: abstract

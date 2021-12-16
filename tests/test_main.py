@@ -151,16 +151,19 @@ class ExportXyloseArticleExporterAdapterTest(
             new_callable=mock.PropertyMock,
         ) as mk_post_request:
             mk_post_request.return_value = {
-                "api_key": "doaj-api-key-1234",
+                "params": {"api_key": "doaj-api-key-1234"},
                 "json": {"field": "value"},
             }
-            article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-                index=self.index, command=self.index_command, article=self.article
+            article_exporter = XyloseArticleExporterAdapter(
+                index=self.index, command=self.index_command, article=self.article,
             )
             article_exporter.command_function()
             mk_requests.post.assert_called_once_with(
-                url=article_exporter.index_exporter.crud_article_url,
-                **{"api_key": "doaj-api-key-1234", "json": {"field": "value"}},
+                url=article_exporter.index_exporter.crud_article_put_url,
+                **{
+                    "params": {"api_key": "doaj-api-key-1234"},
+                    "json": {"field": "value"},
+                },
             )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
