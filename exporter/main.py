@@ -104,13 +104,13 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             (requests.ConnectionError, requests.Timeout),
         ),
     )
-    def _http_post_articles(self):
-        return requests.post(
-            url=self.index_exporter.crud_article_url, **self.post_request
-        )
+    def _send_http_request(self, request_method: callable, url: str, **request: json):
+        return request_method(url=url, **request)
 
-        resp = self._http_post_articles()
     def _export(self):
+        resp = self._send_http_request(
+            requests.post, self.index_exporter.crud_article_url, **self.post_request
+        )
         try:
             resp.raise_for_status()
         except HTTPError as exc:
