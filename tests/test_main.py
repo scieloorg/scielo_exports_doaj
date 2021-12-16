@@ -114,16 +114,11 @@ class AMClientTest(TestCase):
         self.assertEqual(docs[0], "scl")
 
 
-class XyloseArticleExporterAdapterTest(TestCase):
-    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
-    def setUp(self):
-        client = AMClient()
-        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
-
+class XyloseArticleExporterAdapterTestMixin:
     def test_raises_exception_if_invalid_index(self):
         with self.assertRaises(InvalidExporterInitData) as exc:
             article_exporter = XyloseArticleExporterAdapter(
-                index="abc", command="export", article=self.article
+                index="abc", command=self.index_command, article=self.article
             )
         self.assertEqual(str(exc.exception), "Index informado inválido: abc")
 
@@ -131,9 +126,20 @@ class XyloseArticleExporterAdapterTest(TestCase):
     def test_raises_exception_if_invalid_command(self):
         with self.assertRaises(InvalidExporterInitData) as exc:
             article_exporter = XyloseArticleExporterAdapter(
-                index="doaj", command="abc", article=self.article
+                index=self.index, command="abc", article=self.article
             )
         self.assertEqual(str(exc.exception), "Comando informado inválido: abc")
+
+class ExportXyloseArticleExporterAdapterTest(
+    XyloseArticleExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "export"
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        client = AMClient()
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
@@ -149,9 +155,9 @@ class XyloseArticleExporterAdapterTest(TestCase):
                 "json": {"field": "value"},
             }
             article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-                index="doaj", command="export", article=self.article
+                index=self.index, command=self.index_command, article=self.article
             )
-            article_exporter.export()
+            article_exporter.command_function()
             mk_requests.post.assert_called_once_with(
                 url=article_exporter.index_exporter.crud_article_url,
                 **{"api_key": "doaj-api-key-1234", "json": {"field": "value"}},
@@ -171,10 +177,10 @@ class XyloseArticleExporterAdapterTest(TestCase):
         }
 
         article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", command="export", article=self.article
+            index=self.index, command=self.index_command, article=self.article
         )
         with self.assertRaises(IndexExporterHTTPError) as exc:
-            article_exporter.export()
+            article_exporter.command_function()
         self.assertEqual(
             "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
         )
@@ -188,9 +194,9 @@ class XyloseArticleExporterAdapterTest(TestCase):
             "status": "OK",
         }
         article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
-            index="doaj", command="export", article=self.article
+            index=self.index, command=self.index_command, article=self.article
         )
-        ret = article_exporter.export()
+        ret = article_exporter.command_function()
         self.assertEqual(
             ret,
             {
@@ -199,6 +205,18 @@ class XyloseArticleExporterAdapterTest(TestCase):
                 "status": "OK",
             }
         )
+
+
+class UpdateXyloseArticleExporterAdapterTest(
+    XyloseArticleExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "update"
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        client = AMClient()
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
 
 class ProcessDocumentTestMixin:

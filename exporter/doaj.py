@@ -216,8 +216,5 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
         self._data["bibjson"]["title"] = title
 
-    def export(self):
-        pass
-
-    def update(self):
+    def command_function(self):
         pass
