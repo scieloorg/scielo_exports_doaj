@@ -15,9 +15,5 @@ class IndexExporterInterface(ABC):
         pass
 
     @abstractmethod
-    def export(self):
-        pass
-
-    @abstractmethod
-    def update(self):
+    def command_function(self):
         pass

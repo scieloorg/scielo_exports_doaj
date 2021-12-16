@@ -78,9 +78,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             raise InvalidExporterInitData(f"Index informado inválido: {index}")
 
         if command == "export":
-            self.command_function = self.export
+            self._command_function = self._export
         elif command == "update":
-            self.command_function = self.update
+            self._command_function = self._update
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -109,8 +109,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             url=self.index_exporter.crud_article_url, **self.post_request
         )
 
-    def export(self):
         resp = self._http_post_articles()
+    def _export(self):
         try:
             resp.raise_for_status()
         except HTTPError as exc:
@@ -122,8 +122,11 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             export_result["pid"] = self._pid
             return export_result
 
-    def update(self):
+    def _update(self):
         pass
+
+    def command_function(self):
+        return self._command_function()
 
 
 class PoisonPill:
