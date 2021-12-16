@@ -4,6 +4,7 @@ import logging
 import argparse
 import pathlib
 import json
+import datetime
 
 import tenacity
 import requests
@@ -12,7 +13,7 @@ from tqdm import tqdm
 import articlemeta.client as articlemeta_client
 from xylose import scielodocument
 
-from exporter import interfaces, doaj, config
+from exporter import interfaces, doaj, config, utils
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,10 @@ class InvalidIndexExporter(Exception):
 
 
 class IndexExporterHTTPError(Exception):
+    pass
+
+
+class OriginDataFilterError(Exception):
     pass
 
 
@@ -45,6 +50,22 @@ class AMClient:
 
     def document(self, collection: str, pid: str) -> scielodocument.Article:
         return self._client.document(collection=collection, code=pid)
+
+    def documents_identifiers(
+        self,
+        collection: str = None,
+        from_date: datetime = None,
+        until_date: datetime = None,
+    ) -> typing.List[dict]:
+        filter = {}
+        if collection:
+            filter["collection"] = collection
+        if from_date:
+            filter["from_date"] = from_date.strftime("%Y-%m-%d")
+        if until_date:
+            filter["until_date"] = until_date.strftime("%Y-%m-%d")
+
+        return self._client.documents_by_identifiers(only_identifiers=True, **filter)
 
 
 class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
@@ -159,34 +180,25 @@ def export_document(
 
 
 def extract_and_export_documents(
+    get_document:callable,
     index:str,
-    collection:str,
-    output_path:str,
-    pids:typing.List[str],
-    connection:str=None,
-    domain:str=None,
+    output_path:pathlib.Path,
+    pids_by_collection:typing.Dict[str, list],
 ) -> None:
-    params = {}
-    if connection:
-        params["connection"] = connection
-    if domain:
-        params["domain"] = domain
-
-    am_client = AMClient(**params) if params else AMClient()
 
     jobs = [
-        {"get_document": am_client.document, "index": index, "collection": collection, "pid": pid}
+        {"get_document": get_document, "index": index, "collection": collection, "pid": pid}
+        for collection, pids in pids_by_collection.items()
         for pid in pids
     ]
 
-    with tqdm(total=len(pids)) as pbar:
+    with tqdm(total=len(jobs)) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
 
-        def write_result(result, path=output_path):
-            output_file = pathlib.Path(path)
-            with output_file.open("a", encoding="utf-8") as fp:
+        def write_result(result, path:pathlib.Path=output_path):
+            with path.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(result) + "\n")
 
         def log_exception(exception, job, logger=logger):
@@ -207,11 +219,75 @@ def extract_and_export_documents(
     return
 
 
+def articlemeta_parser(sargs):
+    """Parser para capturar informações sobre conexão com o Article Meta"""
+
+    class FutureDateAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            date = datetime.datetime.strptime(values, "%d-%m-%Y")
+            today = datetime.datetime.today()
+            if date > today:
+                setattr(namespace, self.dest, today.strftime("%d-%m-%Y"))
+            else:
+                setattr(namespace, self.dest, values)
+
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--from-date",
+        type=str,
+        action=FutureDateAction,
+        dest="from_date",
+        help="Data inicial de processamento",
+    )
+
+    parser.add_argument(
+        "--until-date",
+        type=str,
+        dest="until_date",
+        action=FutureDateAction,
+        help="Data final de processamento",
+    )
+
+    parser.add_argument(
+        "--collection",
+        type=str,
+        help="Coleção do(s) documento(s) publicados",
+    )
+
+    parser.add_argument(
+        "--pid",
+        type=str,
+        help="PID do documento",
+    )
+
+    parser.add_argument(
+        "--pids",
+        type=pathlib.Path,
+        help="Caminho para arquivo com lista de PIDs de documentos a exportar",
+    )
+
+    parser.add_argument(
+        "--connection",
+        type=str,
+        help="Tipo de conexão com Article Meta: Restful ou Thrift",
+    )
+
+    parser.add_argument(
+        "--domain",
+        type=str,
+        help="Endereço de conexão com Article Meta",
+    )
+
+    return parser
+
+
 def main_exporter(sargs):
     parser = argparse.ArgumentParser(description="Exportador de documentos")
     parser.add_argument("--loglevel", default="INFO")
     parser.add_argument(
         "--output",
+        type=pathlib.Path,
         required=True,
         help="Caminho para arquivo de resultado da exportação",
     )
@@ -219,40 +295,63 @@ def main_exporter(sargs):
     subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
 
     doaj_parser = subparsers.add_parser(
-        "doaj", help="Base de indexação DOAJ"
-    )
-
-    doaj_parser.add_argument(
-        "--collection",
-        type=str,
-        help="Coleção do(s) documento(s) publicados",
-    )
-
-    doaj_parser.add_argument(
-        "--pid",
-        type=str,
-        help="PID do documento",
-    )
-
-    doaj_parser.add_argument(
-        "--pids",
-        help="Caminho para arquivo com lista de PIDs de documentos a exportar",
+        "doaj", help="Base de indexação DOAJ", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)
+
+    if args.index == "doaj" and not (
+        args.from_date or args.until_date or args.pid or args.pids
+    ):
+        raise OriginDataFilterError(
+            "Informe ao menos uma das datas (from-date ou until-date), pid ou pids"
+        )
 
     # Change Logger level
     level = getattr(logging, args.loglevel.upper())
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {
-        "index": args.index, "collection": args.collection, "output_path": args.output
-    }
+    params = {"index": args.index, "output_path": args.output}
+
+    am_client_params = {}
+    if args.connection:
+        am_client_params["connection"] = args.connection
+    if args.domain:
+        am_client_params["domain"] = args.domain
+
+    am_client = AMClient(**am_client_params) if am_client_params else AMClient()
+    params["get_document"] = am_client.document
+
     if args.pid:
-        params["pids"] = [args.pid]
+        if not args.collection:
+            raise OriginDataFilterError(
+                "Coleção é obrigatória para exportação de um PID"
+            )
+
+        params["pids_by_collection"] = {args.collection: [args.pid]}
     elif args.pids:
-        pidsfile = pathlib.Path(args.pids)
-        params["pids"] = [pid for pid in pidsfile.read_text().split("\n") if pid]
+        if not args.collection:
+            raise OriginDataFilterError(
+                "Coleção é obrigatória para exportação de lista de PIDs"
+            )
+
+        params["pids_by_collection"] = {
+            args.collection: [pid for pid in args.pids.read_text().split("\n") if pid]
+        }
+    else:
+        filter = {}
+        if args.collection:
+            filter["collection"] = args.collection
+        if args.from_date:
+            filter["from_date"] = utils.get_valid_datetime(args.from_date)
+        if args.until_date:
+            filter["until_date"] = utils.get_valid_datetime(args.until_date)
+
+        params["pids_by_collection"] = {}
+        docs = am_client.documents_identifiers(**filter)
+        for doc in docs or []:
+            params["pids_by_collection"].setdefault(doc["collection"], [])
+            params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
     extract_and_export_documents(**params)

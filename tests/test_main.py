@@ -2,6 +2,7 @@ import tempfile
 import pathlib
 import json
 from unittest import TestCase, mock
+from datetime import datetime, timedelta
 
 import vcr
 import articlemeta.client as articlemeta_client
@@ -13,8 +14,10 @@ from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidIndexExporter,
     IndexExporterHTTPError,
+    OriginDataFilterError,
     XyloseArticleExporterAdapter,
     export_document,
+    articlemeta_parser,
     main_exporter,
 )
 
@@ -51,6 +54,64 @@ class AMClientTest(TestCase):
         self.assertIsInstance(document, scielodocument.Article)
         self.assertEqual(document.collection_acronym, "scl")
         self.assertEqual(document.data["article"]["code"], "S0100-19651998000200002")
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(
+            collection="scl", from_date=datetime(2021, 8, 2), until_date=datetime(2021, 8, 2)
+        )
+        mk_documents_by_identifiers.assert_called_once_with(
+            collection="scl",
+            from_date="2021-08-02",
+            until_date="2021-08-02",
+            only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_collection(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(collection="scl")
+        mk_documents_by_identifiers.assert_called_once_with(
+            collection="scl", only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_from_date(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(from_date=datetime(2021, 8, 2))
+        mk_documents_by_identifiers.assert_called_once_with(
+            from_date="2021-08-02", only_identifiers=True,
+        )
+
+    @mock.patch("exporter.main.articlemeta_client.RestfulClient.documents_by_identifiers")
+    def test_get_documents_identifiers_calls_documents_by_identifiers_with_until_date(
+        self, mk_documents_by_identifiers
+    ):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(until_date=datetime(2021, 8, 2))
+        mk_documents_by_identifiers.assert_called_once_with(
+            until_date="2021-08-02", only_identifiers=True,
+        )
+
+    @vcr.use_cassette(
+        "tests/fixtures/vcr_cassettes/documents-identifiers.yml",
+        record_mode="new_episodes",
+    )
+    def test_get_documents_identifiers_from_collection_from_and_until_dates(self):
+        self.client = self.make_client()
+        documents = self.client.documents_identifiers(
+            collection="scl", from_date=datetime(2021, 8, 2), until_date=datetime(2021, 8, 2)
+        )
+        self.assertIsNotNone(documents)
+        docs = [document["collection"] for document in documents]
+        self.assertEqual(docs[0], "scl")
 
 
 class XyloseArticleExporterAdapterTest(TestCase):
@@ -183,109 +244,71 @@ class ExportDocumentTest(TestCase):
         MockXyloseArticleExporterAdapter.return_value.export.assert_called_once()
 
 
-@vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+@mock.patch("exporter.main.PoisonPill")
+@mock.patch("exporter.main.export_document")
 class ExtractAndExportDocumentsTest(TestCase):
-    @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.export_document")
-    def test_instanciates_AMClient(self, mk_export_document, MockAMClient):
-        mk_export_document.return_value = {}
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            connection="thrift",
-        )
-        MockAMClient.assert_called_with(connection="thrift")
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
 
-    @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.export_document")
-    def test_instanciates_AMClient_with_another_domain(
-        self, mk_export_document, MockAMClient
-    ):
-        mk_export_document.return_value = {}
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            domain="http://anotheram.scielo.org",
-        )
-        MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
-
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_export_document_called(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         mk_export_document.return_value = {}
         extract_and_export_documents(
+            get_document=self.mk_get_document,
             index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            connection="thrift",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"scl": ["S0100-19651998000200002"]},
         )
         mk_export_document.assert_called_with(
-            get_document=mk_get_document,
+            get_document=self.mk_get_document,
             index="doaj",
             collection="scl",
             pid="S0100-19651998000200002",
             poison_pill=MockPoisonPill(),
         )
 
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_export_document_called_for_each_document(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         mk_export_document.return_value = {}
         pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
         extract_and_export_documents(
+            get_document=self.mk_get_document,
             index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=pids,
-            connection="thrift",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"scl": pids},
         )
         for pid in pids:
             mk_export_document.assert_any_call(
-                get_document=mk_get_document,
+                get_document=self.mk_get_document,
                 index="doaj",
                 collection="scl",
                 pid=pid,
                 poison_pill=MockPoisonPill(),
             )
 
-    @mock.patch("exporter.main.logger.error")
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_logs_error_if_export_document_raises_exception(
-        self, mk_get_document, mk_export_document, MockPoisonPill, mk_logger_error
+        self, mk_export_document, MockPoisonPill
     ):
         exc = ArticleMetaDocumentNotFound()
         mk_export_document.side_effect = exc
-        extract_and_export_documents(
-            index="doaj",
-            collection="scl",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
-            connection="thrift",
-        )
-        mk_logger_error.assert_called_once_with(
-            "Não foi possível exportar documento '%s': '%s'.",
-            "S0100-19651998000200002",
-            exc
-        )
+        with mock.patch("exporter.main.logger.error") as mk_logger_error:
+            extract_and_export_documents(
+                get_document=self.mk_get_document,
+                index="doaj",
+                output_path=pathlib.Path("output.log"),
+                pids_by_collection={"scl": ["S0100-19651998000200001"]},
+            )
+            mk_logger_error.assert_called_once_with(
+                "Não foi possível exportar documento '%s': '%s'.",
+                "S0100-19651998000200001",
+                exc
+            )
 
-    @mock.patch("exporter.main.PoisonPill")
-    @mock.patch("exporter.main.export_document")
-    @mock.patch.object(AMClient, "document")
     def test_all_docs_successfully_posted_are_recorded_to_file(
-        self, mk_get_document, mk_export_document, MockPoisonPill
+        self, mk_export_document, MockPoisonPill
     ):
         fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
         fake_exported_docs = [
@@ -300,11 +323,10 @@ class ExtractAndExportDocumentsTest(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             output_file = pathlib.Path(tmpdirname) / "output.log"
             extract_and_export_documents(
+                get_document=self.mk_get_document,
                 index="doaj",
-                collection="scl",
                 output_path=output_file,
-                pids=fake_pids,
-                connection="thrift",
+                pids_by_collection={"scl": fake_pids},
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -312,10 +334,251 @@ class ExtractAndExportDocumentsTest(TestCase):
                     self.assertIn(pid, file_content)
 
 
+class ArticleMetaParserTest(TestCase):
+    def test_from_date(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+
+    def test_from_date_and_collection(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--collection",
+            "spa"
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.collection, "spa")
+
+    def test_from_and_until_date(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--until-date",
+            "07-01-2021",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.until_date, "07-01-2021")
+
+    def test_from_and_until_date_and_collection(self):
+        sargs = [
+            "--from-date",
+            "01-01-2021",
+            "--until-date",
+            "07-01-2021",
+            "--collection",
+            "spa"
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, "01-01-2021")
+        self.assertEqual(args.until_date, "07-01-2021")
+        self.assertEqual(args.collection, "spa")
+
+    def test_invalid_until_date_raises_exception(self):
+        sargs = [
+            "--until-date",
+            "123456",
+        ]
+        with self.assertRaises(ValueError) as exc:
+            parser = articlemeta_parser(sargs)
+            args = parser.parse_args(sargs)
+
+    def test_future_from_date_is_changed_to_today(self):
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        sargs = [
+            "--from-date",
+            next_week.strftime("%d-%m-%Y"),
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.from_date, today.strftime("%d-%m-%Y"))
+
+    def test_future_until_date_is_changed_to_today(self):
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        sargs = [
+            "--until-date",
+            next_week.strftime("%d-%m-%Y"),
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.until_date, today.strftime("%d-%m-%Y"))
+
+    def test_collection_and_pid(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pid",
+            "S0100-19651998000200002",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(args.pid, "S0100-19651998000200002")
+        self.assertIsNone(args.from_date)
+        self.assertIsNone(args.until_date)
+
+    def test_collection_and_pids(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertIsNone(args.from_date)
+        self.assertIsNone(args.until_date)
+
+    def test_connection(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+            "--connection",
+            "thrift",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertEqual(str(args.connection), "thrift")
+
+    def test_connection(self):
+        sargs = [
+            "--collection",
+            "spa",
+            "--pids",
+            "pids.txt",
+            "--domain",
+            "http://anotheram.scielo.org",
+        ]
+        parser = articlemeta_parser(sargs)
+        args = parser.parse_args(sargs)
+        self.assertEqual(args.collection, "spa")
+        self.assertEqual(str(args.pids), "pids.txt")
+        self.assertEqual(str(args.domain), "http://anotheram.scielo.org")
+
+
 class MainExporterTest(TestCase):
     @mock.patch("exporter.main.extract_and_export_documents")
-    def test_extract_and_export_documents_called_with_collection_and_pid(
+    def test_raises_exception_if_no_dates_nor_pids(
         self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(OriginDataFilterError) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                ]
+            )
+        self.assertEqual(
+            str(exc.exception),
+            "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
+        )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_pid_and_no_collection(
+        self, mk_extract_and_export_documents
+    ):
+        with self.assertRaises(OriginDataFilterError) as exc:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                    "--pid",
+                    "S0100-19651998000200002",
+                ]
+            )
+        self.assertEqual(
+            str(exc.exception),
+            "Coleção é obrigatória para exportação de um PID",
+        )
+
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_raises_exception_if_pids_and_no_collection(
+        self, mk_extract_and_export_documents
+    ):
+        pids = [
+            "S0100-19651998000200001",
+            "S0100-19651998000200002",
+            "S0100-19651998000200003",
+        ]
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            pids_file = pathlib.Path(tmpdirname) / "pids.txt"
+            pids_file.write_text("\n".join(pids))
+            with self.assertRaises(OriginDataFilterError) as exc:
+                main_exporter(
+                    [
+                        "--output",
+                        "output.log",
+                        "doaj",
+                        "--pids",
+                        str(pids_file),
+                    ]
+                )
+            self.assertEqual(
+                str(exc.exception),
+                "Coleção é obrigatória para exportação de lista de PIDs",
+            )
+
+    @mock.patch("exporter.main.AMClient")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_instanciates_AMClient(self, mk_extract_and_export_documents, MockAMClient):
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--connection",
+                "thrift",
+                "--collection",
+                "spa",
+                "--pid",
+                "S0100-19651998000200002",
+            ]
+        )
+        MockAMClient.assert_called_with(connection="thrift")
+
+    @mock.patch("exporter.main.AMClient")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_instanciates_AMClient_with_another_domain(
+        self, mk_extract_and_export_documents, MockAMClient
+    ):
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--domain",
+                "http://anotheram.scielo.org",
+                "--collection",
+                "spa",
+                "--pid",
+                "S0100-19651998000200002",
+            ]
+        )
+        MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
+
+    @mock.patch.object(AMClient, "document")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_collection_and_pid(
+        self, mk_extract_and_export_documents, mk_document
     ):
         main_exporter(
             [
@@ -329,15 +592,16 @@ class MainExporterTest(TestCase):
             ]
         )
         mk_extract_and_export_documents.assert_called_with(
+            get_document=mk_document,
             index="doaj",
-            collection="spa",
-            output_path="output.log",
-            pids=["S0100-19651998000200002"],
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"spa": ["S0100-19651998000200002"]},
         )
 
+    @mock.patch.object(AMClient, "document")
     @mock.patch("exporter.main.extract_and_export_documents")
     def test_extract_and_export_documents_called_with_collection_and_pids_from_file(
-        self, mk_extract_and_export_documents
+        self, mk_extract_and_export_documents, mk_document
     ):
         pids = [
             "S0100-19651998000200001",
@@ -359,5 +623,127 @@ class MainExporterTest(TestCase):
                 ]
             )
         mk_extract_and_export_documents.assert_called_with(
-            index="doaj", collection="spa", output_path="output.log", pids=pids
+            get_document=mk_document,
+            index="doaj",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={"spa": pids},
+        )
+
+    @mock.patch("exporter.main.utils.get_valid_datetime")
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_calls_get_valid_datetime_with_dates(
+        self,
+        mk_extract_and_export_documents,
+        mk_documents_identifiers,
+        mk_get_valid_datetime,
+    ):
+        tests_args = [
+            ["--from-date", "01-01-2021",],
+            ["--until-date", "02-01-2021",],
+            ["--from-date", "01-01-2021", "--until-date", "07-01-2021",],
+        ]
+
+        for args in tests_args:
+            main_exporter(
+                [
+                    "--output",
+                    "output.log",
+                    "doaj",
+                ] +
+                args
+            )
+
+        mk_get_valid_datetime.assert_has_calls(
+            [
+                mock.call("01-01-2021"),
+                mock.call("02-01-2021"),
+                mock.call("01-01-2021"),
+                mock.call("07-01-2021"),
+            ]
+        )
+
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_calls_am_client_documents_identifiers_with_args(
+        self, mk_extract_and_export_documents, mk_documents_identifiers
+    ):
+        tests_args_and_calls = [
+            (["--from-date", "01-01-2021",], {"from_date": datetime(2021, 1, 1, 0, 0)}),
+            (
+                ["--until-date", "02-01-2021",],
+                {"until_date": datetime(2021, 1, 2, 0, 0)},
+            ),
+            (
+                ["--from-date", "01-01-2021", "--until-date", "07-01-2021",],
+                {"from_date": datetime(2021, 1, 1), "until_date": datetime(2021, 1, 7)},
+            ),
+            (
+                ["--collection", "spa", "--from-date", "01-01-2021",],
+                {"collection": "spa", "from_date": datetime(2021, 1, 1)},
+            ),
+            (
+                ["--collection", "spa", "--until-date", "02-01-2021",],
+                {"collection": "spa", "until_date": datetime(2021, 1, 2)},
+            ),
+        ]
+
+        for args, call_params in tests_args_and_calls:
+            with self.subTest(args=args, call_params=call_params):
+                main_exporter(
+                    [
+                        "--output",
+                        "output.log",
+                        "doaj",
+                    ] +
+                    args
+                )
+                mk_documents_identifiers.assert_called_with(**call_params)
+
+    @mock.patch.object(AMClient, "documents_identifiers")
+    @mock.patch.object(AMClient, "document")
+    @mock.patch("exporter.main.extract_and_export_documents")
+    def test_extract_and_export_documents_called_with_identifiers_from_date_search(
+        self, mk_extract_and_export_documents, mk_document, mk_documents_identifiers
+    ):
+        mk_documents_identifiers.return_value = [
+            {
+                'doi': 'doi-123456',
+                'collection': 'scl',
+                'processing_date': '2021-12-06',
+                'code': 'S0101-01019000090090097',
+            },
+            {
+                'doi': 'doi-654321',
+                'collection': 'arg',
+                'processing_date': '2021-12-06',
+                'code': 'S0202-01019000090090098',
+            },
+            {
+                'doi': 'doi-162534',
+                'collection': 'cub',
+                'processing_date': '2021-12-06',
+                'code': 'S0303-01019000090090099',
+            },
+        ]
+        main_exporter(
+            [
+                "--output",
+                "output.log",
+                "doaj",
+                "--from-date",
+                "01-01-2021",
+                "--until-date",
+                "07-01-2021",
+            ],
+        )
+        mk_extract_and_export_documents.assert_called_once_with(
+            get_document=mk_document,
+            index="doaj",
+            output_path=pathlib.Path("output.log"),
+            pids_by_collection={
+                "scl": ["S0101-01019000090090097"],
+                "arg": ["S0202-01019000090090098"],
+                "cub": ["S0303-01019000090090099"],
+            },
         )
