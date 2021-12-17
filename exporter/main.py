@@ -200,7 +200,7 @@ class JobExecutor:
                     except Exception as exc:
                         self.exception_callback(exc, job)
                     else:
-                        self.success_callback(result)
+                        self.success_callback(result, job)
                     finally:
                         self.update_bar()
             except KeyboardInterrupt:
@@ -254,10 +254,16 @@ def process_extracted_documents(
         def update_bar(pbar=pbar):
             pbar.update(1)
 
-        def write_result(result, path:pathlib.Path=output_path):
-            logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
-            with path.open("a", encoding="utf-8") as fp:
-                fp.write(json.dumps(result) + "\n")
+        def write_result(result, job, path:pathlib.Path=output_path):
+            if path.is_dir():
+                file_path = path / f'{job["pid"]}.json'
+                logger.debug('Gravando resultado em arquivo %s: "%s"', file_path)
+                with file_path.open("w", encoding="utf-8") as fp:
+                    json.dump(result, fp)
+            else:
+                logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
+                with path.open("a", encoding="utf-8") as fp:
+                    fp.write(json.dumps(result) + "\n")
 
         def log_exception(exception, job, logger=logger):
             logger.error(
