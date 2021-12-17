@@ -265,6 +265,63 @@ class UpdateXyloseArticleExporterAdapterTest(
             "Erro na consulta ao doaj: HTTP Error. wrong field.", str(exc.exception)
         )
 
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_calls_doaj_put_request_with_doaj_get_response(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_resp = mock.Mock()
+        mk_requests.get.return_value = mk_requests.put.return_value = mock_resp
+        mk_requests.get.return_value.json.return_value = {
+            "id": "doaj-id",
+            "field": "value",
+        }
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        article_exporter.command_function()
+        mk_put_request.assert_called_once_with(
+            {
+                "id": "doaj-id",
+                "field": "value",
+            },
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_calls_requests_put_to_doaj_api_with_doaj_put_request(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_resp = mock.Mock()
+        mk_requests.get.return_value = mk_requests.put.return_value = mock_resp
+        mk_put_request.return_value = {
+            "params": {"api_key": "doaj-api-key-1234"},
+            "json": {
+                "id": "doaj-id",
+                "field": "value",
+            }
+        }
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        crud_article_url = article_exporter.index_exporter.crud_article_url
+
+        article_exporter.command_function()
+        mk_requests.put.assert_called_once_with(
+            url=crud_article_url,
+            **{
+                "params": {"api_key": "doaj-api-key-1234"},
+                "json": {
+                    "id": "doaj-id",
+                    "field": "value",
+                }
+            },
+        )
+
 
 class ProcessDocumentTestMixin:
 
