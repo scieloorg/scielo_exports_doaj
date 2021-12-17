@@ -112,6 +112,9 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             "params": {"api_key": config.get("DOAJ_API_KEY")},
         }
 
+    def put_request(self, data: dict) -> dict:
+        pass
+
     def post_response(self, response: dict) -> dict:
         return {
             "index_id": response.get("id"),
