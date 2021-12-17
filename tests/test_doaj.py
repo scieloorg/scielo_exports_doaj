@@ -138,6 +138,12 @@ class DOAJExporterXyloseArticleTest(TestCase):
             expected, self.doaj_document.post_request
         )
 
+    def test_get_request(self):
+        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
+        self.assertEqual(
+            expected, self.doaj_document.get_request
+        )
+
     def test_post_response_201(self):
         fake_response = {
           "id": "doaj-1234",
