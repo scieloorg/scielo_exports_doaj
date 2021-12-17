@@ -322,6 +322,52 @@ class UpdateXyloseArticleExporterAdapterTest(
             },
         )
 
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_raises_exception_if_put_raises_http_error(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_put_resp = mock.Mock()
+        mock_put_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.put.return_value = mock_put_resp
+        mk_requests.put.return_value.json.return_value = {
+            "id": "doaj-id",
+            "error": "wrong field.",
+        }
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro ao atualizar o doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_returns_response(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_put_resp = mock.Mock()
+        mk_requests.put.return_value = mock_put_resp
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        ret = article_exporter.command_function()
+        self.assertEqual(
+            ret,
+            {
+                "pid": self.article.data["code"],
+                "status": "OK",
+            }
+        )
+
 
 class ProcessDocumentTestMixin:
 
