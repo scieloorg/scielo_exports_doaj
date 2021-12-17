@@ -130,7 +130,15 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             return export_result
 
     def _update(self):
-        pass
+        resp = self._send_http_request(
+            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+        )
+        try:
+            resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(resp.json())
+            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
 
     def command_function(self):
         return self._command_function()

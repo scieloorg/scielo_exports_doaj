@@ -220,6 +220,50 @@ class UpdateXyloseArticleExporterAdapterTest(
     def setUp(self):
         client = AMClient()
         self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+        self.article.data["doaj_id"] = "doaj-id-123456"
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch(
+        "exporter.main.doaj.DOAJExporterXyloseArticle.get_request",
+        new_callable=mock.PropertyMock,
+    )
+    def test_update_calls_requests_get_to_doaj_api_with_doaj_get_request(
+        self, mk_get_request, mk_requests
+    ):
+        mk_get_request.return_value = { "params": {"api_key": "doaj-api-key-1234"} }
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        crud_article_url = article_exporter.index_exporter.crud_article_url
+
+        article_exporter.command_function()
+        mk_requests.get.assert_called_once_with(
+            url=crud_article_url,
+            **{ "params": { "api_key": "doaj-api-key-1234" } },
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_update_raises_exception_if_get_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.get.return_value = mock_resp
+        mk_requests.get.return_value.json.return_value = {
+            "id": "doaj-id",
+            "error": "wrong field.",
+        }
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro na consulta ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
 
 
 class ProcessDocumentTestMixin:
