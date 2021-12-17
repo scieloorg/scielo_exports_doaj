@@ -7,6 +7,10 @@ class IndexExporterInterface(ABC):
         pass
 
     @abstractmethod
+    def get_request(self) -> dict:
+        pass
+
+    @abstractmethod
     def post_response(self, response: dict) -> dict:
         pass
 
