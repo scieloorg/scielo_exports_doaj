@@ -466,7 +466,7 @@ class ProcessExtractedDocumentsTestMixin:
             get_document=self.mk_get_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"scl": ["S0100-19651998000200002"]},
         )
         mk_process_document.assert_called_with(
@@ -487,7 +487,7 @@ class ProcessExtractedDocumentsTestMixin:
             get_document=self.mk_get_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"scl": pids},
         )
         for pid in pids:
@@ -510,7 +510,7 @@ class ProcessExtractedDocumentsTestMixin:
                 get_document=self.mk_get_document,
                 index=self.index,
                 index_command=self.index_command,
-                output_path=pathlib.Path("output.log"),
+                output_path=self.output_path,
                 pids_by_collection={"scl": ["S0100-19651998000200001"]},
             )
             mk_logger_error.assert_called_once_with(
@@ -519,7 +519,19 @@ class ProcessExtractedDocumentsTestMixin:
                 exc
             )
 
-    def test_all_docs_successfully_posted_are_recorded_to_file(
+
+class ExportExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
+
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_exported_are_recorded_to_file(
         self, mk_process_document, MockPoisonPill
     ):
         fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
@@ -547,16 +559,45 @@ class ProcessExtractedDocumentsTestMixin:
                     self.assertIn(pid, file_content)
 
 
-class ExportExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
     index = "doaj"
-    index_command = "export"
+    index_command = "update"
+    output_path = pathlib.Path("output.log")
 
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
 
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_updated_are_recorded_to_file(
+        self, mk_process_document, MockPoisonPill
+    ):
+        fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
+        fake_exported_docs = [
+            {
+                "index_id": f"doaj-{pid}",
+                "status": "OK",
+                "pid": pid,
+            }
+            for pid in fake_pids
+        ]
+        mk_process_document.side_effect = fake_exported_docs
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            output_file = pathlib.Path(tmpdirname) / "output.log"
+            process_extracted_documents(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=output_file,
+                pids_by_collection={"scl": fake_pids},
+            )
+            file_content = output_file.read_text()
+            for pid in fake_pids:
+                with self.subTest(pid=pid):
+                    self.assertIn(pid, file_content)
 
-class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+
     index = "doaj"
     index_command = "update"
 
