@@ -158,23 +158,19 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
         )
 
 
-@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-class DOAJExporterXyloseArticleExceptionsTest(TestCase):
-    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
-    def setUp(self):
-        client = AMClient()
-        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
 
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+class DOAJExporterXyloseArticleExceptionsTestMixin:
     @mock.patch.dict("os.environ", {"DOAJ_API_URL": ""})
     def test_raises_exception_if_no_post_url(self):
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
-            doaj.DOAJExporterXyloseArticle(article=self.article).post_url
+            doaj.DOAJExporterXyloseArticle(article=self.article)
         self.assertEqual("No DOAJ_API_URL set", str(exc.exception))
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": ""})
     def test_raises_exception_if_no_api_key(self):
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoRequestData) as exc:
-            doaj.DOAJExporterXyloseArticle(article=self.article)._api_key
+            doaj.DOAJExporterXyloseArticle(article=self.article)
         self.assertEqual("No DOAJ_API_KEY set", str(exc.exception))
 
     def test_raises_exception_if_no_doaj_id(self):
@@ -183,45 +179,44 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
             doaj.DOAJExporterXyloseArticle(article=self.article).crud_article_url
         self.assertEqual("No DOAJ ID for article", str(exc.exception))
 
-    def test_no_abstract_if_no_article_abstract(self):
+    def test_http_request_has_no_abstract_if_no_article_abstract(self):
         del self.article.data["article"]["v83"]    # v83: abstract
-        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertIsNone(req["json"]["bibjson"].get("abstract"))
 
-        self.assertIsNone(doaj_document.bibjson_abstract)
-
-    def test_raises_exception_if_no_author(self):
+    def test_http_request_raises_exception_if_no_author(self):
         del self.article.data["article"]["v10"]    # v10: authors
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoAuthorsException) as exc:
-            doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.http_request_function()
 
-    def test_raises_exception_if_no_eissn_nor_pissn(self):
+    def test_http_request_raises_exception_if_no_eissn_nor_pissn(self):
         self.article.journal.electronic_issn = None
         self.article.journal.print_issn = None
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoISSNException) as exc:
-            doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.http_request_function()
 
     @mock.patch("exporter.doaj.requests.get")
-    def test_send_request_get_with_eissn_and_pissn(self, mk_requests_get):
-        # MockRequest = mock.Mock(spec=requests.Request, status_code=404)
-        # MockRequest.json = mock.Mock(return_value={"results": [{"field": "value"}]})
+    def test_http_request_send_request_get_with_eissn_and_pissn(self, mk_requests_get):
         mk_requests_get.side_effect = [
             mock.MagicMock(status_code=404), mock.MagicMock(status_code=200),
         ]
 
-        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
-        mk_requests_get.assert_has_calls(
-            [
-                mock.call(
-                    f"{doaj_document.search_journal_url}{self.article.journal.electronic_issn}"
-                ),
-                mock.call(
-                    f"{doaj_document.search_journal_url}{self.article.journal.print_issn}"
-                ),
-            ]
-        )
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        self.http_request_function()
+        mk_requests_get.assert_has_calls([
+            mock.call(
+                f"{self.doaj_document.search_journal_url}{self.article.journal.electronic_issn}"
+            ),
+            mock.call(
+                f"{self.doaj_document.search_journal_url}{self.article.journal.print_issn}"
+            ),
+        ])
 
     @mock.patch("exporter.doaj.requests.get")
-    def test_set_identifier_with_issn_returned_from_doaj_journals_search(
+    def test_http_request_set_identifier_with_issn_returned_from_doaj_journals_search(
         self, mk_requests_get
     ):
         MockRequest = mock.Mock(spec=requests.Request, status_code=200)
@@ -238,13 +233,14 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
             }
         )
         mk_requests_get.return_value = MockRequest
-        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
-
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
         self.assertIn(
-            {"id": "eissn-returned", "type": "eissn"}, doaj_document.bibjson_identifier,
+            {"id": "eissn-returned", "type": "eissn"},
+            req["json"]["bibjson"]["identifier"],
         )
 
-    def test_raises_exception_if_no_journal_required_fields(self):
+    def test_http_request_raises_exception_if_no_journal_required_fields(self):
         del self.article.journal.data["v310"]    # v310: publisher_country
         del self.article.journal.data["v350"]    # v350: languages
         del self.article.journal.data["v480"]    # v480: publisher_name
@@ -253,15 +249,16 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         with self.assertRaises(
             doaj.DOAJExporterXyloseArticleNoJournalRequiredFields
         ) as exc:
-            doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+            self.http_request_function()
 
-    def test_no_keywords_if_no_article_keywords(self):
+    def test_http_request_has_no_keywords_if_no_article_keywords(self):
         del self.article.data["article"]["v85"]    # v85: keywords
-        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertIsNone(req["json"]["bibjson"].get("keywords"))
 
-        self.assertIsNone(doaj_document.bibjson_keywords)
-
-    def test_raises_exception_if_no_doi_nor_fulltexts(self):
+    def test_http_request_raises_exception_if_no_doi_nor_fulltexts(self):
         del self.article.data["doi"]
         del self.article.data["article"]["v237"]    # v237: doi
         with mock.patch.object(self.article, "fulltexts") as mk_fulltexts:
@@ -272,22 +269,24 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
             with self.assertRaises(
                 doaj.DOAJExporterXyloseArticleNoDOINorlink
             ) as exc:
-                doaj.DOAJExporterXyloseArticle(article=self.article)
+                self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+                self.http_request_function()
             self.assertEqual(
                 str(exc.exception),
                 "Documento não possui DOI ou links para texto completo",
             )
 
-    def test_sets_as_untitled_document_if_no_article_title(self):
+    def test_http_request_sets_as_untitled_document_if_no_article_title(self):
         del self.article.data["article"]["v12"]    # v12: titles
-        doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
 
         section_code = self.article.section_code
         original_lang = self.article.original_language()
         # Section title = "Artigos"
+        req = self.http_request_function()
         self.assertEqual(
             self.article.issue.sections.get(section_code, {}).get(original_lang),
-            doaj_document.bibjson_title,
+            req["json"]["bibjson"]["title"],
         )
 
     def test_error_response_return_empty_str_if_no_error(self):
@@ -300,3 +299,16 @@ class DOAJExporterXyloseArticleExceptionsTest(TestCase):
         self.assertEqual(
             "", doaj_document.error_response(fake_response)
         )
+
+
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+class PostDOAJExporterXyloseArticleExceptionsTest(
+    DOAJExporterXyloseArticleExceptionsTestMixin, TestCase,
+):
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
+    def setUp(self):
+        client = AMClient()
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+
+    def http_request_function(self):
+        return self.doaj_document.post_request
