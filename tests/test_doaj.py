@@ -21,64 +21,38 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def _fake_utcnow(self):
         return "2021-01-01T00:00:00Z"
 
-    def test_crud_article_put_url(self):
-        self.assertEqual(
-            config.get("DOAJ_API_URL") + "articles",
-            self.doaj_document.crud_article_put_url,
-        )
+    def _expected_created_date(self):
+        return self._fake_utcnow()
 
-    def test_crud_article_url(self):
-        self.assertEqual(
-            config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
-            self.doaj_document.crud_article_url,
-        )
+    def _expected_last_updated(self):
+        return self._fake_utcnow()
 
-    def test_created_date(self):
-        self.assertEqual(
-            self._fake_utcnow(),
-            self.doaj_document.created_date,
-        )
+    def _expected_bibjson_abstract(self):
+        return self.article.original_abstract()
 
-    def test_last_updated(self):
-        self.assertEqual(
-            self._fake_utcnow(),
-            self.doaj_document.last_updated,
-        )
-
-    def test_bibjson_abstract(self):
-        abstract = self.article.original_abstract()
-        self.assertEqual(
-            abstract, self.doaj_document.bibjson_abstract
-        )
-
-    def test_bibjson_author(self):
-        for author in self.article.authors:
-            with self.subTest(author=author):
-                author_name = " ".join(
+    def _expected_bibjson_author(self):
+        return [
+            {
+                "name": " ".join(
                     [author.get('given_names', ''), author.get('surname', '')]
                 )
-                self.assertIn(
-                    {"name": author_name},
-                    self.doaj_document.bibjson_author,
-                )
+            }
+            for author in self.article.authors
+        ]
 
-    def test_bibjson_identifier(self):
+    def _expected_bibjson_identifier(self):
+        identifier = []
         issn = self.article.journal.any_issn()
         if issn == self.article.journal.electronic_issn:
             issn_type = "eissn"
         else:
             issn_type = "pissn"
 
-        self.assertIn(
-            {"id": issn, "type": issn_type},
-            self.doaj_document.bibjson_identifier,
-        )
-        self.assertIn(
-            {"id": self.article.doi, "type": "doi"},
-            self.doaj_document.bibjson_identifier,
-        )
+        identifier.append({"id": issn, "type": issn_type})
+        identifier.append({"id": self.article.doi, "type": "doi"})
+        return identifier
 
-    def test_bibjson_journal(self):
+    def _expected_bibjson_journal(self):
         expected = {}
         publisher_country = self.article.journal.publisher_country
         if publisher_country:
@@ -94,16 +68,13 @@ class DOAJExporterXyloseArticleTest(TestCase):
         if title:
             expected["title"] = title
 
-        self.assertEqual(expected, self.doaj_document.bibjson_journal)
+        return expected
 
-    def test_bibjson_keywords(self):
+    def _expected_bibjson_keywords(self):
         keywords = self.article.keywords()
-        expected = keywords.get(self.article.original_language())
-        self.assertEqual(
-            expected, self.doaj_document.bibjson_keywords
-        )
+        return keywords.get(self.article.original_language())
 
-    def test_bibjson_link(self):
+    def _expected_bibjson_link(self):
         MIME_TYPE = {
             "html": "text/html",
             "pdf": "application/pdf",
@@ -120,19 +91,36 @@ class DOAJExporterXyloseArticleTest(TestCase):
                         "url": url,
                     }
                 )
-        self.assertEqual(
-            expected, self.doaj_document.bibjson_link
-        )
+        return expected
 
-    def test_bibjson_title(self):
+    def _expected_bibjson_title(self):
+        return self.article.original_title()
+
+
+class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_crud_article_put_url(self):
         self.assertEqual(
-            self.article.original_title(), self.doaj_document.bibjson_title
+            config.get("DOAJ_API_URL") + "articles",
+            self.doaj_document.crud_article_put_url,
         )
 
     def test_post_request(self):
         expected = {
             "params": {"api_key": config.get("DOAJ_API_KEY")},
-            "json": self.doaj_document._data,
+            "json": {
+                "id": self.article.data["doaj_id"],
+                "created_date": self._expected_created_date(),
+                "last_updated": self._expected_last_updated(),
+                "bibjson": {
+                    "abstract": self._expected_bibjson_abstract(),
+                    "author": self._expected_bibjson_author(),
+                    "identifier": self._expected_bibjson_identifier(),
+                    "journal": self._expected_bibjson_journal(),
+                    "keywords": self._expected_bibjson_keywords(),
+                    "link": self._expected_bibjson_link(),
+                    "title": self._expected_bibjson_title(),
+                },
+            },
         }
         self.assertEqual(
             expected, self.doaj_document.post_request
