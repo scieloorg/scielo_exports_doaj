@@ -126,12 +126,6 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
             expected, self.doaj_document.post_request
         )
 
-    def test_get_request(self):
-        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
-        self.assertEqual(
-            expected, self.doaj_document.get_request
-        )
-
     def test_post_response_201(self):
         fake_response = {
           "id": "doaj-1234",
@@ -157,6 +151,60 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
             "Fake Field is missing.", self.doaj_document.error_response(fake_response)
         )
 
+
+class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_crud_article_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
+            self.doaj_document.crud_article_url,
+        )
+
+    def test_get_request(self):
+        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
+        self.assertEqual(
+            expected, self.doaj_document.get_request
+        )
+
+    def test_put_request(self):
+        fake_get_resp = {
+            "id": self.article.data["doaj_id"],
+            "created_date": "2020-01-01T00:00:00Z",
+            "last_updated": "2020-01-01T00:00:00Z",
+            "bibjson": {
+                "abstract": "Old abstract",
+                "author": [],
+                "identifier": [],
+                "journal": {
+                    "country": "BR",
+                    "language": ["pt"],
+                    "publisher": "Journal Publisher",
+                    "title": "Journal Title",
+                },
+                "keywords": [],
+                "link": [],
+                "title": "Article Title",
+            },
+        }
+        expected = {
+            "params": {"api_key": config.get("DOAJ_API_KEY")},
+            "json": {
+                "id": self.article.data["doaj_id"],
+                "created_date": "2020-01-01T00:00:00Z",
+                "last_updated": self._expected_last_updated(),
+                "bibjson": {
+                    "abstract": self._expected_bibjson_abstract(),
+                    "author": self._expected_bibjson_author(),
+                    "identifier": self._expected_bibjson_identifier(),
+                    "journal": self._expected_bibjson_journal(),
+                    "keywords": self._expected_bibjson_keywords(),
+                    "link": self._expected_bibjson_link(),
+                    "title": self._expected_bibjson_title(),
+                },
+            },
+        }
+        self.assertEqual(
+            expected, self.doaj_document.put_request(fake_get_resp)
+        )
 
 
 @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -312,3 +360,34 @@ class PostDOAJExporterXyloseArticleExceptionsTest(
 
     def http_request_function(self):
         return self.doaj_document.post_request
+
+
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+class PutDOAJExporterXyloseArticleExceptionsTest(
+    DOAJExporterXyloseArticleExceptionsTestMixin, TestCase,
+):
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
+    def setUp(self):
+        client = AMClient()
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+        self.article.data["doaj_id"] = "doaj-id-123456"
+        self.fake_get_resp = {
+            "id": self.article.data["doaj_id"],
+            "created_date": "2020-01-01T00:00:00Z",
+            "last_updated": "2020-01-01T00:00:00Z",
+            "bibjson": {
+                "author": [],
+                "identifier": [],
+                "journal": {
+                    "country": "BR",
+                    "language": ["pt"],
+                    "publisher": "Journal Publisher",
+                    "title": "Journal Title",
+                },
+                "link": [],
+                "title": "Article Title",
+            },
+        }
+
+    def http_request_function(self):
+        return self.doaj_document.put_request(self.fake_get_resp)

@@ -79,7 +79,20 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         }
 
     def put_request(self, data: dict) -> dict:
-        pass
+        self._data = data
+        self._data["last_updated"] = self._now
+        self._data.setdefault("bibjson", {})
+        self._set_bibjson_abstract()
+        self._set_bibjson_author()
+        self._set_bibjson_identifier()
+        self._set_bibjson_journal()
+        self._set_bibjson_keywords()
+        self._set_bibjson_link()
+        self._set_bibjson_title()
+        return {
+            "params": {"api_key": config.get("DOAJ_API_KEY")},
+            "json": self._data
+        }
 
     def post_response(self, response: dict) -> dict:
         return {
