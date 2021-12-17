@@ -11,6 +11,10 @@ class IndexExporterInterface(ABC):
         pass
 
     @abstractmethod
+    def put_request(self, data: dict) -> dict:
+        pass
+
+    @abstractmethod
     def post_response(self, response: dict) -> dict:
         pass
 
