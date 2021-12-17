@@ -57,42 +57,6 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             return url
 
     @property
-    def created_date(self) -> typing.List[dict]:
-        return self._data["created_date"]
-
-    @property
-    def last_updated(self) -> typing.List[dict]:
-        return self._data["last_updated"]
-
-    @property
-    def bibjson_abstract(self) -> typing.List[dict]:
-        return self._data["bibjson"].get("abstract")
-
-    @property
-    def bibjson_author(self) -> typing.List[dict]:
-        return self._data["bibjson"]["author"]
-
-    @property
-    def bibjson_identifier(self) -> typing.List[dict]:
-        return self._data["bibjson"]["identifier"]
-
-    @property
-    def bibjson_journal(self) -> str:
-        return self._data["bibjson"]["journal"]
-
-    @property
-    def bibjson_keywords(self) -> str:
-        return self._data["bibjson"].get("keywords")
-
-    @property
-    def bibjson_link(self) -> str:
-        return self._data["bibjson"]["link"]
-
-    @property
-    def bibjson_title(self) -> str:
-        return self._data["bibjson"]["title"]
-
-    @property
     def post_request(self) -> dict:
         self._data["created_date"] = self._data["last_updated"] = self._now
         self._data.setdefault("bibjson", {})
