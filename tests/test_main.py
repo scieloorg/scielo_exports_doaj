@@ -1,6 +1,7 @@
 import tempfile
 import pathlib
 import json
+import shutil
 from unittest import TestCase, mock
 from datetime import datetime, timedelta
 
@@ -712,7 +713,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                 ]
             )
 
@@ -724,7 +725,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                 ]
             )
@@ -737,7 +738,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                 ]
@@ -755,7 +756,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                     "--pid",
@@ -783,7 +784,7 @@ class MainExporterTestMixin:
                 main_exporter(
                     [
                         "--output",
-                        "output.log",
+                        str(self.output_path),
                         self.index,
                         self.index_command,
                         "--pids",
@@ -801,7 +802,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--connection",
@@ -822,7 +823,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--domain",
@@ -843,7 +844,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--collection",
@@ -856,7 +857,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"spa": ["S0100-19651998000200002"]},
         )
 
@@ -876,7 +877,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                     "--collection",
@@ -889,7 +890,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"spa": pids},
         )
 
@@ -912,7 +913,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                 ] +
@@ -958,7 +959,7 @@ class MainExporterTestMixin:
                 main_exporter(
                     [
                         "--output",
-                        "output.log",
+                        str(self.output_path),
                         self.index,
                         self.index_command,
                     ] +
@@ -995,7 +996,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--from-date",
@@ -1008,7 +1009,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={
                 "scl": ["S0101-01019000090090097"],
                 "arg": ["S0202-01019000090090098"],
@@ -1020,8 +1021,21 @@ class MainExporterTestMixin:
 class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "export"
+    output_path = pathlib.Path("output.log")
 
 
 class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
+    output_path = pathlib.Path("output.log")
+
+
+class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "get"
+
+    def setUp(self):
+        self.output_path = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.output_path)
