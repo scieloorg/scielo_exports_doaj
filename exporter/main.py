@@ -146,6 +146,14 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 self.index_exporter.crud_article_url,
                 **put_req,
             )
+            try:
+                put_resp.raise_for_status()
+            except HTTPError as exc:
+                error_response = self.error_response(put_resp.json())
+                exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
+                raise IndexExporterHTTPError(exc_msg)
+            else:
+                return { "pid": self._pid, "status": "OK" }
 
     def command_function(self):
         return self._command_function()
