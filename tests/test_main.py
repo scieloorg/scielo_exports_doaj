@@ -598,12 +598,53 @@ class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
                     self.assertIn(pid, file_content)
 
 
+class GetExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
 
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
+        self.output_path = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.output_path)
+
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_get_are_recorded_to_path(
+        self, mk_process_document, MockPoisonPill
+    ):
+        fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
+        fake_exported_docs = [
+            {
+                "index_id": f"doaj-{pid}",
+                "status": "OK",
+                "pid": pid,
+            }
+            for pid in fake_pids
+        ]
+        mk_process_document.side_effect = fake_exported_docs
+        process_extracted_documents(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": fake_pids},
+        )
+        for pid in fake_pids:
+            with self.subTest(pid=pid):
+                file_path = self.output_path / f"{pid}.json"
+                self.assertTrue(file_path.exists())
+                file_content = json.loads(file_path.read_text())
+                self.assertEqual(
+                    file_content,
+                    {
+                        "index_id": f"doaj-{pid}",
+                        "status": "OK",
+                        "pid": pid,
+                    },
+                )
 
 
 class ArticleMetaParserTest(TestCase):
