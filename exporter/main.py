@@ -365,6 +365,10 @@ def main_exporter(sargs):
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
     )
 
+    doaj_export_subparsers.add_parser(
+        "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
+    )
+
     args = parser.parse_args(sargs)
 
     if not (args.from_date or args.until_date or args.pid or args.pids):
