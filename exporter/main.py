@@ -81,6 +81,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             self._command_function = self._export
         elif command == "update":
             self._command_function = self._update
+        elif command == "get":
+            self._command_function = self._get
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -158,6 +160,21 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 update_result = { "pid": self._pid, "status": "OK" }
                 logger.debug("Resultado da atualização: %s", update_result)
                 return update_result
+
+    def _get(self):
+        get_resp = self._send_http_request(
+            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+        )
+        try:
+            get_resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(get_resp.json())
+            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            get_result = get_resp.json()
+            get_result["pid"] = self._pid
+            return get_result
 
     def command_function(self):
         return self._command_function()
