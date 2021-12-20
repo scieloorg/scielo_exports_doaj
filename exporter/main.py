@@ -112,6 +112,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         ),
     )
     def _send_http_request(self, request_method: callable, url: str, **request: json):
+        logger.debug("Enviando requisição HTTP %s", url)
         return request_method(url=url, **request)
 
     def _export(self):
@@ -127,6 +128,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         else:
             export_result = self.post_response(resp.json())
             export_result["pid"] = self._pid
+            logger.debug("Resultado do export: %s", export_result)
             return export_result
 
     def _update(self):
@@ -153,7 +155,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
                 raise IndexExporterHTTPError(exc_msg)
             else:
-                return { "pid": self._pid, "status": "OK" }
+                update_result = { "pid": self._pid, "status": "OK" }
+                logger.debug("Resultado da atualização: %s", update_result)
+                return update_result
 
     def command_function(self):
         return self._command_function()
@@ -216,6 +220,7 @@ def process_document(
     if poison_pill.poisoned:
         return
 
+    logger.debug('Executando comando "%s" para PID "%s"', index_command, pid)
     document = get_document(collection=collection, pid=pid)
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
@@ -250,6 +255,7 @@ def process_extracted_documents(
             pbar.update(1)
 
         def write_result(result, path:pathlib.Path=output_path):
+            logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
             with path.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(result) + "\n")
 
@@ -368,6 +374,7 @@ def main_exporter(sargs):
 
     # Change Logger level
     level = getattr(logging, args.loglevel.upper())
+    logging.basicConfig(level=level, **config.INITIAL_LOG_CONFIG)
     logger = logging.getLogger()
     logger.setLevel(level)
 
