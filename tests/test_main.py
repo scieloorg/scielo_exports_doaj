@@ -252,10 +252,6 @@ class UpdateXyloseArticleExporterAdapterTest(
             "HTTP Error"
         )
         mk_requests.get.return_value = mock_resp
-        mk_requests.get.return_value.json.return_value = {
-            "id": "doaj-id",
-            "error": "wrong field.",
-        }
 
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
@@ -263,7 +259,7 @@ class UpdateXyloseArticleExporterAdapterTest(
         with self.assertRaises(IndexExporterHTTPError) as exc:
             article_exporter.command_function()
         self.assertEqual(
-            "Erro na consulta ao doaj: HTTP Error. wrong field.", str(exc.exception)
+            "Erro na consulta ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -411,10 +407,6 @@ class GetXyloseArticleExporterAdapterTest(
             "HTTP Error"
         )
         mk_requests.get.return_value = mock_resp
-        mk_requests.get.return_value.json.return_value = {
-            "id": "doaj-id",
-            "error": "wrong field.",
-        }
 
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
@@ -422,7 +414,7 @@ class GetXyloseArticleExporterAdapterTest(
         with self.assertRaises(IndexExporterHTTPError) as exc:
             article_exporter.command_function()
         self.assertEqual(
-            "Erro na consulta ao doaj: HTTP Error. wrong field.", str(exc.exception)
+            "Erro na consulta ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
