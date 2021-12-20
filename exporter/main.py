@@ -140,9 +140,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         try:
             get_resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(get_resp.json())
-            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
-            raise IndexExporterHTTPError(exc_msg)
+            raise IndexExporterHTTPError(
+                f"Erro na consulta ao {self.index}: {exc}."
+            )
         else:
             put_req = self.put_request(get_resp.json())
             put_resp = self._send_http_request(
@@ -168,9 +168,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         try:
             get_resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(get_resp.json())
-            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
-            raise IndexExporterHTTPError(exc_msg)
+            raise IndexExporterHTTPError(
+                f"Erro na consulta ao {self.index}: {exc}."
+            )
         else:
             get_result = get_resp.json()
             get_result["pid"] = self._pid
