@@ -131,6 +131,7 @@ class XyloseArticleExporterAdapterTestMixin:
             )
         self.assertEqual(str(exc.exception), "Comando informado inválido: abc")
 
+
 class ExportXyloseArticleExporterAdapterTest(
     XyloseArticleExporterAdapterTestMixin, TestCase,
 ):
@@ -979,10 +980,7 @@ class ArticleMetaParserTest(TestCase):
 
 
 class MainExporterTestMixin:
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_index_command(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_index_command(self):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
                 [
@@ -991,10 +989,7 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_doaj_command(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_doaj_command(self):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
                 [
@@ -1004,10 +999,7 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_dates_nor_pids(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_dates_nor_pids(self):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
                 [
@@ -1022,10 +1014,7 @@ class MainExporterTestMixin:
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
         )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_pid_and_no_collection(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_pid_and_no_collection(self):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
                 [
@@ -1042,10 +1031,7 @@ class MainExporterTestMixin:
             "Coleção é obrigatória para exportação de um PID",
         )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_pids_and_no_collection(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_pids_and_no_collection(self):
         pids = [
             "S0100-19651998000200001",
             "S0100-19651998000200002",
@@ -1071,8 +1057,7 @@ class MainExporterTestMixin:
             )
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_instanciates_AMClient(self, mk_process_extracted_documents, MockAMClient):
+    def test_instanciates_AMClient(self, MockAMClient):
         main_exporter(
             [
                 "--output",
@@ -1090,10 +1075,7 @@ class MainExporterTestMixin:
         MockAMClient.assert_called_with(connection="thrift")
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_instanciates_AMClient_with_another_domain(
-        self, mk_process_extracted_documents, MockAMClient
-    ):
+    def test_instanciates_AMClient_with_another_domain(self, MockAMClient):
         main_exporter(
             [
                 "--output",
@@ -1111,9 +1093,8 @@ class MainExporterTestMixin:
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_collection_and_pid(
-        self, mk_process_extracted_documents, mk_document
+        self, mk_document
     ):
         main_exporter(
             [
@@ -1127,7 +1108,7 @@ class MainExporterTestMixin:
                 "S0100-19651998000200002",
             ]
         )
-        mk_process_extracted_documents.assert_called_with(
+        self.mk_process_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1136,9 +1117,8 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_collection_and_pids_from_file(
-        self, mk_process_extracted_documents, mk_document
+        self, mk_document
     ):
         pids = [
             "S0100-19651998000200001",
@@ -1160,7 +1140,7 @@ class MainExporterTestMixin:
                     str(pids_file),
                 ]
             )
-        mk_process_extracted_documents.assert_called_with(
+        self.mk_process_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1170,10 +1150,8 @@ class MainExporterTestMixin:
 
     @mock.patch("exporter.main.utils.get_valid_datetime")
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_get_valid_datetime_with_dates(
         self,
-        mk_process_extracted_documents,
         mk_documents_identifiers,
         mk_get_valid_datetime,
     ):
@@ -1204,9 +1182,8 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_am_client_documents_identifiers_with_args(
-        self, mk_process_extracted_documents, mk_documents_identifiers
+        self, mk_documents_identifiers
     ):
         tests_args_and_calls = [
             (["--from-date", "01-01-2021",], {"from_date": datetime(2021, 1, 1, 0, 0)}),
@@ -1243,9 +1220,8 @@ class MainExporterTestMixin:
 
     @mock.patch.object(AMClient, "documents_identifiers")
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_identifiers_from_date_search(
-        self, mk_process_extracted_documents, mk_document, mk_documents_identifiers
+        self, mk_document, mk_documents_identifiers
     ):
         mk_documents_identifiers.return_value = [
             {
@@ -1279,7 +1255,7 @@ class MainExporterTestMixin:
                 "07-01-2021",
             ],
         )
-        mk_process_extracted_documents.assert_called_once_with(
+        self.mk_process_documents.assert_called_once_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1297,11 +1273,25 @@ class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
     index_command = "export"
     output_path = pathlib.Path("output.log")
 
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
+
 
 class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
     output_path = pathlib.Path("output.log")
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
 
 
 class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
@@ -1310,12 +1300,22 @@ class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
 
     def setUp(self):
         self.output_path = pathlib.Path(tempfile.mkdtemp())
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
 
     def tearDown(self):
         shutil.rmtree(self.output_path)
+        self.mk_process_documents.stop()
 
 
 class DOAJDeleteMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "delete"
     output_path = pathlib.Path("output.log")
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
