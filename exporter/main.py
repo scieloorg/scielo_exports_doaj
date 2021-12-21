@@ -83,6 +83,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             self._command_function = self._update
         elif command == "get":
             self._command_function = self._get
+        elif command == "delete":
+            self._command_function = self._delete
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -161,7 +163,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
                 raise IndexExporterHTTPError(exc_msg)
             else:
-                update_result = { "pid": self._pid, "status": "OK" }
+                update_result = { "pid": self._pid, "status": "UPDATED" }
                 logger.debug("Resultado da atualização: %s", update_result)
                 return update_result
 
@@ -179,6 +181,21 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             get_result = get_resp.json()
             get_result["pid"] = self._pid
             return get_result
+
+    def _delete(self):
+        delete_resp = self._send_http_request(
+            requests.delete, self.index_exporter.crud_article_url, **self.delete_request,
+        )
+        try:
+            delete_resp.raise_for_status()
+        except HTTPError as exc:
+            raise IndexExporterHTTPError(
+                f"Erro ao deletar no {self.index}: {exc}."
+            )
+        else:
+            delete_result = { "pid": self._pid, "status": "DELETED" }
+            logger.debug("Resultado da deleção: %s", delete_result)
+            return delete_result
 
     def command_function(self):
         return self._command_function()
