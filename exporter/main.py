@@ -23,7 +23,7 @@ class ArticleMetaDocumentNotFound(Exception):
     pass
 
 
-class InvalidIndexExporter(Exception):
+class InvalidExporterInitData(Exception):
     pass
 
 
@@ -71,17 +71,32 @@ class AMClient:
 class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     index_exporter: interfaces.IndexExporterInterface
 
-    def __init__(self, index: str, article: scielodocument.Article):
+    def __init__(self, index: str, command: str, article: scielodocument.Article):
         if index == "doaj":
             self.index_exporter = doaj.DOAJExporterXyloseArticle(article)
         else:
-            raise InvalidIndexExporter()
+            raise InvalidExporterInitData(f"Index informado inválido: {index}")
+
+        if command == "export":
+            self._command_function = self._export
+        elif command == "update":
+            self._command_function = self._update
+        else:
+            raise InvalidExporterInitData(f"Comando informado inválido: {command}")
+
         self.index = index
         self._pid = article.data.get("code", "")
 
     @property
     def post_request(self) -> dict:
         return self.index_exporter.post_request
+
+    @property
+    def get_request(self) -> dict:
+        return self.index_exporter.get_request
+
+    def put_request(self, data: dict) -> dict:
+        return self.index_exporter.put_request(data)
 
     def post_response(self, response: dict) -> dict:
         return self.index_exporter.post_response(response)
@@ -96,13 +111,14 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             (requests.ConnectionError, requests.Timeout),
         ),
     )
-    def _http_post_articles(self):
-        return requests.post(
-            url=self.index_exporter.crud_article_url, **self.post_request
-        )
+    def _send_http_request(self, request_method: callable, url: str, **request: json):
+        logger.debug("Enviando requisição HTTP %s", url)
+        return request_method(url=url, **request)
 
-    def export(self):
-        resp = self._http_post_articles()
+    def _export(self):
+        resp = self._send_http_request(
+            requests.post, self.index_exporter.crud_article_put_url, **self.post_request
+        )
         try:
             resp.raise_for_status()
         except HTTPError as exc:
@@ -112,7 +128,39 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         else:
             export_result = self.post_response(resp.json())
             export_result["pid"] = self._pid
+            logger.debug("Resultado do export: %s", export_result)
             return export_result
+
+    def _update(self):
+        get_resp = self._send_http_request(
+            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+        )
+        try:
+            get_resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(get_resp.json())
+            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            put_req = self.put_request(get_resp.json())
+            put_resp = self._send_http_request(
+                requests.put,
+                self.index_exporter.crud_article_url,
+                **put_req,
+            )
+            try:
+                put_resp.raise_for_status()
+            except HTTPError as exc:
+                error_response = self.error_response(put_resp.json())
+                exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
+                raise IndexExporterHTTPError(exc_msg)
+            else:
+                update_result = { "pid": self._pid, "status": "OK" }
+                logger.debug("Resultado da atualização: %s", update_result)
+                return update_result
+
+    def command_function(self):
+        return self._command_function()
 
 
 class PoisonPill:
@@ -161,9 +209,10 @@ class JobExecutor:
                 raise
 
 
-def export_document(
+def process_document(
     get_document: callable,
     index: str,
+    index_command: str,
     collection: str,
     pid: str,
     poison_pill: PoisonPill = PoisonPill(),
@@ -171,23 +220,31 @@ def export_document(
     if poison_pill.poisoned:
         return
 
+    logger.debug('Executando comando "%s" para PID "%s"', index_command, pid)
     document = get_document(collection=collection, pid=pid)
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
-    article_adapter = XyloseArticleExporterAdapter(index, document)
-    return article_adapter.export()
+    article_adapter = XyloseArticleExporterAdapter(index, index_command, document)
+    return article_adapter.command_function()
 
 
-def extract_and_export_documents(
+def process_extracted_documents(
     get_document:callable,
     index:str,
+    index_command:str,
     output_path:pathlib.Path,
     pids_by_collection:typing.Dict[str, list],
 ) -> None:
 
     jobs = [
-        {"get_document": get_document, "index": index, "collection": collection, "pid": pid}
+        {
+            "get_document": get_document,
+            "index": index,
+            "index_command": index_command,
+            "collection": collection,
+            "pid": pid,
+        }
         for collection, pids in pids_by_collection.items()
         for pid in pids
     ]
@@ -198,6 +255,7 @@ def extract_and_export_documents(
             pbar.update(1)
 
         def write_result(result, path:pathlib.Path=output_path):
+            logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
             with path.open("a", encoding="utf-8") as fp:
                 fp.write(json.dumps(result) + "\n")
 
@@ -209,7 +267,7 @@ def extract_and_export_documents(
             )
 
         executor = JobExecutor(
-            export_document,
+            process_document,
             max_workers=4,
             success_callback=write_result,
             exception_callback=log_exception,
@@ -292,27 +350,39 @@ def main_exporter(sargs):
         help="Caminho para arquivo de resultado da exportação",
     )
 
-    subparsers = parser.add_subparsers(title="Index", metavar="", dest="index")
+    subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
 
-    doaj_parser = subparsers.add_parser(
-        "doaj", help="Base de indexação DOAJ", parents=[articlemeta_parser(sargs)],
+    doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
+    doaj_export_subparsers = doaj_parser.add_subparsers(
+        title="DOAJ Command", dest="doaj_command", required=True,
+    )
+
+    doaj_export_subparsers.add_parser(
+        "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
+    )
+
+    doaj_export_subparsers.add_parser(
+        "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)
 
-    if args.index == "doaj" and not (
-        args.from_date or args.until_date or args.pid or args.pids
-    ):
+    if not (args.from_date or args.until_date or args.pid or args.pids):
         raise OriginDataFilterError(
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids"
         )
 
     # Change Logger level
     level = getattr(logging, args.loglevel.upper())
+    logging.basicConfig(level=level, **config.INITIAL_LOG_CONFIG)
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    params = {"index": args.index, "output_path": args.output}
+    params = {
+        "index": args.index,
+        "index_command": args.doaj_command,
+        "output_path": args.output,
+    }
 
     am_client_params = {}
     if args.connection:
@@ -354,4 +424,4 @@ def main_exporter(sargs):
             params["pids_by_collection"].setdefault(doc["collection"], [])
             params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
-    extract_and_export_documents(**params)
+    process_extracted_documents(**params)

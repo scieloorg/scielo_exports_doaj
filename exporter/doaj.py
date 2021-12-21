@@ -29,16 +29,11 @@ class DOAJExporterXyloseArticleNoDOINorlink(Exception):
 class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def __init__(self, article: scielodocument.Article, now: callable = utils.utcnow()):
         self._set_api_config()
+        self._article = article
+        self._now = now
         self._data = {}
-        self._data["created_date"] = self._data["last_updated"] = now
-        self._data.setdefault("bibjson", {})
-        self._add_bibjson_abstract(article)
-        self._add_bibjson_author(article)
-        self._add_bibjson_identifier(article)
-        self._add_bibjson_journal(article)
-        self._add_bibjson_keywords(article)
-        self._add_bibjson_link(article)
-        self._add_bibjson_title(article)
+        if article.data.get("doaj_id"):
+            self._data["id"] = article.data["doaj_id"]
 
     def _set_api_config(self):
         for attr, envvar in [("_api_url", "DOAJ_API_URL"), ("_api_key", "DOAJ_API_KEY")]:
@@ -47,47 +42,53 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 raise DOAJExporterXyloseArticleNoRequestData(f"No {envvar} set")
             setattr(self, attr, config_var)
 
-        self.crud_article_url = f"{self._api_url}articles"
+        self.crud_article_put_url = f"{self._api_url}articles"
         self.search_journal_url = f"{self._api_url}search/journals/"
 
     @property
-    def created_date(self) -> typing.List[dict]:
-        return self._data["created_date"]
-
-    @property
-    def last_updated(self) -> typing.List[dict]:
-        return self._data["last_updated"]
-
-    @property
-    def bibjson_abstract(self) -> typing.List[dict]:
-        return self._data["bibjson"].get("abstract")
-
-    @property
-    def bibjson_author(self) -> typing.List[dict]:
-        return self._data["bibjson"]["author"]
-
-    @property
-    def bibjson_identifier(self) -> typing.List[dict]:
-        return self._data["bibjson"]["identifier"]
-
-    @property
-    def bibjson_journal(self) -> str:
-        return self._data["bibjson"]["journal"]
-
-    @property
-    def bibjson_keywords(self) -> str:
-        return self._data["bibjson"].get("keywords")
-
-    @property
-    def bibjson_link(self) -> str:
-        return self._data["bibjson"]["link"]
-
-    @property
-    def bibjson_title(self) -> str:
-        return self._data["bibjson"]["title"]
+    def crud_article_url(self):
+        try:
+            url = f'{self._api_url}articles/{self._data["id"]}'
+        except KeyError:
+            raise DOAJExporterXyloseArticleNoRequestData(
+                "No DOAJ ID for article"
+            ) from None
+        else:
+            return url
 
     @property
     def post_request(self) -> dict:
+        self._data["created_date"] = self._data["last_updated"] = self._now
+        self._data.setdefault("bibjson", {})
+        self._set_bibjson_abstract()
+        self._set_bibjson_author()
+        self._set_bibjson_identifier()
+        self._set_bibjson_journal()
+        self._set_bibjson_keywords()
+        self._set_bibjson_link()
+        self._set_bibjson_title()
+        return {
+            "params": {"api_key": config.get("DOAJ_API_KEY")},
+            "json": self._data
+        }
+
+    @property
+    def get_request(self) -> dict:
+        return {
+            "params": {"api_key": config.get("DOAJ_API_KEY")},
+        }
+
+    def put_request(self, data: dict) -> dict:
+        self._data = data
+        self._data["last_updated"] = self._now
+        self._data.setdefault("bibjson", {})
+        self._set_bibjson_abstract()
+        self._set_bibjson_author()
+        self._set_bibjson_identifier()
+        self._set_bibjson_journal()
+        self._set_bibjson_keywords()
+        self._set_bibjson_link()
+        self._set_bibjson_title()
         return {
             "params": {"api_key": config.get("DOAJ_API_KEY")},
             "json": self._data
@@ -102,25 +103,25 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
     def error_response(self, response: dict) -> str:
         return response.get("error", "")
 
-    def _add_bibjson_abstract(self, article: scielodocument.Article):
-        abstract = article.original_abstract()
+    def _set_bibjson_abstract(self):
+        abstract = self._article.original_abstract()
         if abstract:
             self._data["bibjson"]["abstract"] = abstract
 
-    def _add_bibjson_author(self, article: scielodocument.Article):
-        if not article.authors:
+    def _set_bibjson_author(self):
+        if not self._article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
 
         self._data["bibjson"].setdefault("author", [])
-        for author in article.authors:
+        for author in self._article.authors:
             author_name = " ".join(
                 [author.get('given_names', ''), author.get('surname', '')]
             )
             self._data["bibjson"]["author"].append({"name": author_name})
 
-    def _get_registered_journal_issn(self, article: scielodocument.Article):
+    def _get_registered_journal_issn(self):
         for journal_attr in ["electronic_issn", "print_issn"]:
-            issn = getattr(article.journal, journal_attr)
+            issn = getattr(self._article.journal, journal_attr)
             if not issn:
                 continue
 
@@ -139,53 +140,53 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             raise DOAJExporterXyloseArticleNoISSNException()
 
 
-    def _add_bibjson_identifier(self, article: scielodocument.Article):
-        issn, issn_type = self._get_registered_journal_issn(article)
+    def _set_bibjson_identifier(self):
+        issn, issn_type = self._get_registered_journal_issn()
         self._data["bibjson"]["identifier"] = [{"id": issn, "type": issn_type}]
 
-        if article.doi:
+        if self._article.doi:
             self._data["bibjson"]["identifier"].append(
-                {"id": article.doi, "type": "doi"}
+                {"id": self._article.doi, "type": "doi"}
             )
 
-    def _add_bibjson_journal(self, article: scielodocument.Article):
+    def _set_bibjson_journal(self):
         journal = {}
 
         def _set_journal_field(journal, article, field, field_to_set, required=False):
-            journal_field = getattr(article.journal, field)
+            journal_field = getattr(self._article.journal, field)
             if journal_field:
                 journal[field_to_set] = journal_field
             elif not journal_field and required:
                 raise DOAJExporterXyloseArticleNoJournalRequiredFields()
 
 
-        publisher_country = article.journal.publisher_country
+        publisher_country = self._article.journal.publisher_country
         if not publisher_country:
             raise DOAJExporterXyloseArticleNoJournalRequiredFields()
         else:
             country_code, __ = publisher_country
             journal["country"] = country_code
 
-        _set_journal_field(journal, article, "languages", "language", required=True)
+        _set_journal_field(journal, self._article, "languages", "language", required=True)
         _set_journal_field(
-            journal, article, "publisher_name", "publisher", required=True
+            journal, self._article, "publisher_name", "publisher", required=True
         )
-        _set_journal_field(journal, article, "title", "title", required=True)
+        _set_journal_field(journal, self._article, "title", "title", required=True)
 
         self._data["bibjson"]["journal"] = journal
 
-    def _add_bibjson_keywords(self, article: scielodocument.Article):
-        keywords = article.keywords()
-        if keywords and keywords.get(article.original_language()):
-            self._data["bibjson"]["keywords"] = keywords[article.original_language()]
+    def _set_bibjson_keywords(self):
+        keywords = self._article.keywords()
+        if keywords and keywords.get(self._article.original_language()):
+            self._data["bibjson"]["keywords"] = keywords[self._article.original_language()]
 
-    def _add_bibjson_link(self, article: scielodocument.Article):
+    def _set_bibjson_link(self):
         MIME_TYPE = {
             "html": "text/html",
             "pdf": "application/pdf",
         }
 
-        fulltexts = article.fulltexts()
+        fulltexts = self._article.fulltexts()
         if fulltexts:
             self._data["bibjson"].setdefault("link", [])
             for content_type, links in fulltexts.items():
@@ -199,22 +200,22 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                             }
                         )
 
-        if not (self._data["bibjson"].get("link") or article.doi):
+        if not (self._data["bibjson"].get("link") or self._article.doi):
             raise DOAJExporterXyloseArticleNoDOINorlink(
                 "Documento não possui DOI ou links para texto completo"
             )
 
-    def _add_bibjson_title(self, article: scielodocument.Article):
-        title = article.original_title()
+    def _set_bibjson_title(self):
+        title = self._article.original_title()
 
         if not title:
-            section_code = article.section_code
-            original_lang = article.original_language()
-            title = article.issue.sections.get(section_code, {}).get(
+            section_code = self._article.section_code
+            original_lang = self._article.original_language()
+            title = self._article.issue.sections.get(section_code, {}).get(
                 original_lang, "Documento sem título"
             )
 
         self._data["bibjson"]["title"] = title
 
-    def export(self):
+    def command_function(self):
         pass
