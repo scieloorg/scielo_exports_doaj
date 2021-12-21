@@ -1,6 +1,7 @@
 import tempfile
 import pathlib
 import json
+import shutil
 from unittest import TestCase, mock
 from datetime import datetime, timedelta
 
@@ -251,10 +252,6 @@ class UpdateXyloseArticleExporterAdapterTest(
             "HTTP Error"
         )
         mk_requests.get.return_value = mock_resp
-        mk_requests.get.return_value.json.return_value = {
-            "id": "doaj-id",
-            "error": "wrong field.",
-        }
 
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
@@ -262,7 +259,7 @@ class UpdateXyloseArticleExporterAdapterTest(
         with self.assertRaises(IndexExporterHTTPError) as exc:
             article_exporter.command_function()
         self.assertEqual(
-            "Erro na consulta ao doaj: HTTP Error. wrong field.", str(exc.exception)
+            "Erro na consulta ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -369,6 +366,79 @@ class UpdateXyloseArticleExporterAdapterTest(
         )
 
 
+class GetXyloseArticleExporterAdapterTest(
+    XyloseArticleExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "get"
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        client = AMClient()
+        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+        self.article.data["doaj_id"] = "doaj-id-123456"
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch(
+        "exporter.main.doaj.DOAJExporterXyloseArticle.get_request",
+        new_callable=mock.PropertyMock,
+    )
+    def test_get_calls_requests_get_to_doaj_api_with_doaj_get_request(
+        self, mk_get_request, mk_requests
+    ):
+        mk_get_request.return_value = { "params": {"api_key": "doaj-api-key-1234"} }
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        crud_article_url = article_exporter.index_exporter.crud_article_url
+
+        article_exporter.command_function()
+        mk_requests.get.assert_called_once_with(
+            url=crud_article_url,
+            **{ "params": { "api_key": "doaj-api-key-1234" } },
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_get_raises_exception_if_get_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.get.return_value = mock_resp
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro na consulta ao doaj: HTTP Error.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_get_returns_response(
+        self, mk_requests,
+    ):
+        mock_resp = mock.Mock()
+        mk_requests.get.return_value = mock_resp
+        mk_requests.get.return_value.json.return_value = {
+            "id": "doaj-id",
+            "field": "value",
+        }
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        ret = article_exporter.command_function()
+        self.assertEqual(
+            ret,
+            { "pid": self.article.data["code"], "id": "doaj-id", "field": "value" },
+        )
+
+
 class ProcessDocumentTestMixin:
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter")
@@ -454,6 +524,11 @@ class UpdateDocumentTest(ProcessDocumentTestMixin, TestCase):
     index_command = "update"
 
 
+class GetDocumentTest(ProcessDocumentTestMixin, TestCase):
+    index = "doaj"
+    index_command = "get"
+
+
 @mock.patch("exporter.main.PoisonPill")
 @mock.patch("exporter.main.process_document")
 class ProcessExtractedDocumentsTestMixin:
@@ -465,7 +540,7 @@ class ProcessExtractedDocumentsTestMixin:
             get_document=self.mk_get_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"scl": ["S0100-19651998000200002"]},
         )
         mk_process_document.assert_called_with(
@@ -486,7 +561,7 @@ class ProcessExtractedDocumentsTestMixin:
             get_document=self.mk_get_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"scl": pids},
         )
         for pid in pids:
@@ -509,7 +584,7 @@ class ProcessExtractedDocumentsTestMixin:
                 get_document=self.mk_get_document,
                 index=self.index,
                 index_command=self.index_command,
-                output_path=pathlib.Path("output.log"),
+                output_path=self.output_path,
                 pids_by_collection={"scl": ["S0100-19651998000200001"]},
             )
             mk_logger_error.assert_called_once_with(
@@ -518,7 +593,19 @@ class ProcessExtractedDocumentsTestMixin:
                 exc
             )
 
-    def test_all_docs_successfully_posted_are_recorded_to_file(
+
+class ExportExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
+
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_exported_are_recorded_to_file(
         self, mk_process_document, MockPoisonPill
     ):
         fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
@@ -546,22 +633,92 @@ class ProcessExtractedDocumentsTestMixin:
                     self.assertIn(pid, file_content)
 
 
-class ExportExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
     index = "doaj"
-    index_command = "export"
+    index_command = "update"
+    output_path = pathlib.Path("output.log")
 
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
 
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_updated_are_recorded_to_file(
+        self, mk_process_document, MockPoisonPill
+    ):
+        fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
+        fake_exported_docs = [
+            {
+                "index_id": f"doaj-{pid}",
+                "status": "OK",
+                "pid": pid,
+            }
+            for pid in fake_pids
+        ]
+        mk_process_document.side_effect = fake_exported_docs
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            output_file = pathlib.Path(tmpdirname) / "output.log"
+            process_extracted_documents(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=output_file,
+                pids_by_collection={"scl": fake_pids},
+            )
+            file_content = output_file.read_text()
+            for pid in fake_pids:
+                with self.subTest(pid=pid):
+                    self.assertIn(pid, file_content)
 
-class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
+
+class GetExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
 
     @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
     def setUp(self):
         self.mk_get_document = mock.MagicMock()
+        self.output_path = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.output_path)
+
+    @mock.patch("exporter.main.PoisonPill")
+    @mock.patch("exporter.main.process_document")
+    def test_all_docs_successfully_get_are_recorded_to_path(
+        self, mk_process_document, MockPoisonPill
+    ):
+        fake_pids = [f"S0100-1965199800020000{count}" for count in range(1, 5)]
+        fake_exported_docs = [
+            {
+                "index_id": f"doaj-{pid}",
+                "status": "OK",
+                "pid": pid,
+            }
+            for pid in fake_pids
+        ]
+        mk_process_document.side_effect = fake_exported_docs
+        process_extracted_documents(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": fake_pids},
+        )
+        for pid in fake_pids:
+            with self.subTest(pid=pid):
+                file_path = self.output_path / f"{pid}.json"
+                self.assertTrue(file_path.exists())
+                file_content = json.loads(file_path.read_text())
+                self.assertEqual(
+                    file_content,
+                    {
+                        "index_id": f"doaj-{pid}",
+                        "status": "OK",
+                        "pid": pid,
+                    },
+                )
 
 
 class ArticleMetaParserTest(TestCase):
@@ -712,7 +869,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                 ]
             )
 
@@ -724,7 +881,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                 ]
             )
@@ -737,7 +894,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                 ]
@@ -755,7 +912,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                     "--pid",
@@ -783,7 +940,7 @@ class MainExporterTestMixin:
                 main_exporter(
                     [
                         "--output",
-                        "output.log",
+                        str(self.output_path),
                         self.index,
                         self.index_command,
                         "--pids",
@@ -801,7 +958,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--connection",
@@ -822,7 +979,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--domain",
@@ -843,7 +1000,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--collection",
@@ -856,7 +1013,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"spa": ["S0100-19651998000200002"]},
         )
 
@@ -876,7 +1033,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                     "--collection",
@@ -889,7 +1046,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={"spa": pids},
         )
 
@@ -912,7 +1069,7 @@ class MainExporterTestMixin:
             main_exporter(
                 [
                     "--output",
-                    "output.log",
+                    str(self.output_path),
                     self.index,
                     self.index_command,
                 ] +
@@ -958,7 +1115,7 @@ class MainExporterTestMixin:
                 main_exporter(
                     [
                         "--output",
-                        "output.log",
+                        str(self.output_path),
                         self.index,
                         self.index_command,
                     ] +
@@ -995,7 +1152,7 @@ class MainExporterTestMixin:
         main_exporter(
             [
                 "--output",
-                "output.log",
+                str(self.output_path),
                 self.index,
                 self.index_command,
                 "--from-date",
@@ -1008,7 +1165,7 @@ class MainExporterTestMixin:
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
-            output_path=pathlib.Path("output.log"),
+            output_path=self.output_path,
             pids_by_collection={
                 "scl": ["S0101-01019000090090097"],
                 "arg": ["S0202-01019000090090098"],
@@ -1020,8 +1177,21 @@ class MainExporterTestMixin:
 class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "export"
+    output_path = pathlib.Path("output.log")
 
 
 class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
+    output_path = pathlib.Path("output.log")
+
+
+class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "get"
+
+    def setUp(self):
+        self.output_path = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.output_path)

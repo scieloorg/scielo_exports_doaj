@@ -81,6 +81,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             self._command_function = self._export
         elif command == "update":
             self._command_function = self._update
+        elif command == "get":
+            self._command_function = self._get
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -138,9 +140,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         try:
             get_resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(get_resp.json())
-            exc_msg = f"Erro na consulta ao {self.index}: {exc}. {error_response}"
-            raise IndexExporterHTTPError(exc_msg)
+            raise IndexExporterHTTPError(
+                f"Erro na consulta ao {self.index}: {exc}."
+            )
         else:
             put_req = self.put_request(get_resp.json())
             put_resp = self._send_http_request(
@@ -158,6 +160,21 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 update_result = { "pid": self._pid, "status": "OK" }
                 logger.debug("Resultado da atualização: %s", update_result)
                 return update_result
+
+    def _get(self):
+        get_resp = self._send_http_request(
+            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+        )
+        try:
+            get_resp.raise_for_status()
+        except HTTPError as exc:
+            raise IndexExporterHTTPError(
+                f"Erro na consulta ao {self.index}: {exc}."
+            )
+        else:
+            get_result = get_resp.json()
+            get_result["pid"] = self._pid
+            return get_result
 
     def command_function(self):
         return self._command_function()
@@ -200,7 +217,7 @@ class JobExecutor:
                     except Exception as exc:
                         self.exception_callback(exc, job)
                     else:
-                        self.success_callback(result)
+                        self.success_callback(result, job)
                     finally:
                         self.update_bar()
             except KeyboardInterrupt:
@@ -254,10 +271,16 @@ def process_extracted_documents(
         def update_bar(pbar=pbar):
             pbar.update(1)
 
-        def write_result(result, path:pathlib.Path=output_path):
-            logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
-            with path.open("a", encoding="utf-8") as fp:
-                fp.write(json.dumps(result) + "\n")
+        def write_result(result, job, path:pathlib.Path=output_path):
+            if path.is_dir():
+                file_path = path / f'{job["pid"]}.json'
+                logger.debug('Gravando resultado em arquivo %s: "%s"', file_path)
+                with file_path.open("w", encoding="utf-8") as fp:
+                    json.dump(result, fp)
+            else:
+                logger.debug('Gravando resultado em arquivo %s: "%s"', path, result)
+                with path.open("a", encoding="utf-8") as fp:
+                    fp.write(json.dumps(result) + "\n")
 
         def log_exception(exception, job, logger=logger):
             logger.error(
@@ -363,6 +386,10 @@ def main_exporter(sargs):
 
     doaj_export_subparsers.add_parser(
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
+    )
+
+    doaj_export_subparsers.add_parser(
+        "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)
