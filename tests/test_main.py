@@ -494,24 +494,26 @@ class ProcessDocumentTestMixin:
         )
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter", autospec=True)
-    def test_calls_XyloseArticleExporterAdapter_command_function(
+    def test_returns_XyloseArticleExporterAdapter_command_function(
         self, MockXyloseArticleExporterAdapter
     ):
         document = mock.create_autospec(
             spec=scielodocument.Article, data={"id": "document-1234"}
         )
         mk_document = mock.Mock(return_value=document)
-        mk_command_function = mock.Mock(return_value={})
+        mk_command_function = mock.Mock(
+            return_value={"id": "doaj-id-1234", "status": "OK"}
+        )
         MockXyloseArticleExporterAdapter.return_value.command_function = \
             mk_command_function
-        process_document(
+        ret = process_document(
             mk_document,
             index=self.index,
             index_command=self.index_command,
             collection="scl",
             pid="S0100-19651998000200002",
         )
-        mk_command_function.assert_called_once()
+        self.assertEqual(ret, {"id": "doaj-id-1234", "status": "OK"})
 
 
 class ExportDocumentTest(ProcessDocumentTestMixin, TestCase):
@@ -651,7 +653,7 @@ class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
         fake_exported_docs = [
             {
                 "index_id": f"doaj-{pid}",
-                "status": "OK",
+                "status": "UPDATED",
                 "pid": pid,
             }
             for pid in fake_pids
