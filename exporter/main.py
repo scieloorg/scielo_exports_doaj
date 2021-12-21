@@ -305,7 +305,7 @@ def process_extracted_documents(
 
         def log_exception(exception, job, logger=logger):
             logger.error(
-                "Não foi possível exportar documento '%s': '%s'.",
+                "Não foi possível processar documento '%s': '%s'.",
                 job["pid"],
                 exception,
             )
