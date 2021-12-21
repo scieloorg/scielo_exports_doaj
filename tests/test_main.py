@@ -1195,3 +1195,9 @@ class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.output_path)
+
+
+class DOAJDeleteMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "delete"
+    output_path = pathlib.Path("output.log")
