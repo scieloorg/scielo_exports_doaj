@@ -667,7 +667,7 @@ class ProcessExtractedDocumentsTestMixin:
                 pids_by_collection={"scl": ["S0100-19651998000200001"]},
             )
             mk_logger_error.assert_called_once_with(
-                "Não foi possível exportar documento '%s': '%s'.",
+                "Não foi possível processar documento '%s': '%s'.",
                 "S0100-19651998000200001",
                 exc
             )
