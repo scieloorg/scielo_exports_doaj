@@ -78,6 +78,12 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             "params": {"api_key": config.get("DOAJ_API_KEY")},
         }
 
+    @property
+    def delete_request(self) -> dict:
+        return {
+            "params": {"api_key": config.get("DOAJ_API_KEY")},
+        }
+
     def put_request(self, data: dict) -> dict:
         self._data = data
         self._data["last_updated"] = self._now

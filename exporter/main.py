@@ -97,6 +97,10 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     def get_request(self) -> dict:
         return self.index_exporter.get_request
 
+    @property
+    def delete_request(self) -> dict:
+        return self.index_exporter.delete_request
+
     def put_request(self, data: dict) -> dict:
         return self.index_exporter.put_request(data)
 

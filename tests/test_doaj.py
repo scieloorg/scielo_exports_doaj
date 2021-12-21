@@ -207,6 +207,20 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
         )
 
 
+class DeleteDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_crud_article_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
+            self.doaj_document.crud_article_url,
+        )
+
+    def test_delete_request(self):
+        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
+        self.assertEqual(
+            expected, self.doaj_document.delete_request
+        )
+
+
 @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
 class DOAJExporterXyloseArticleExceptionsTestMixin:
     @mock.patch.dict("os.environ", {"DOAJ_API_URL": ""})
