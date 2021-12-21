@@ -83,6 +83,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             self._command_function = self._update
         elif command == "get":
             self._command_function = self._get
+        elif command == "delete":
+            self._command_function = self._delete
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -96,6 +98,10 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     @property
     def get_request(self) -> dict:
         return self.index_exporter.get_request
+
+    @property
+    def delete_request(self) -> dict:
+        return self.index_exporter.delete_request
 
     def put_request(self, data: dict) -> dict:
         return self.index_exporter.put_request(data)
@@ -157,7 +163,7 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
                 exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
                 raise IndexExporterHTTPError(exc_msg)
             else:
-                update_result = { "pid": self._pid, "status": "OK" }
+                update_result = { "pid": self._pid, "status": "UPDATED" }
                 logger.debug("Resultado da atualização: %s", update_result)
                 return update_result
 
@@ -175,6 +181,21 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             get_result = get_resp.json()
             get_result["pid"] = self._pid
             return get_result
+
+    def _delete(self):
+        delete_resp = self._send_http_request(
+            requests.delete, self.index_exporter.crud_article_url, **self.delete_request,
+        )
+        try:
+            delete_resp.raise_for_status()
+        except HTTPError as exc:
+            raise IndexExporterHTTPError(
+                f"Erro ao deletar no {self.index}: {exc}."
+            )
+        else:
+            delete_result = { "pid": self._pid, "status": "DELETED" }
+            logger.debug("Resultado da deleção: %s", delete_result)
+            return delete_result
 
     def command_function(self):
         return self._command_function()
@@ -284,7 +305,7 @@ def process_extracted_documents(
 
         def log_exception(exception, job, logger=logger):
             logger.error(
-                "Não foi possível exportar documento '%s': '%s'.",
+                "Não foi possível processar documento '%s': '%s'.",
                 job["pid"],
                 exception,
             )
@@ -390,6 +411,10 @@ def main_exporter(sargs):
 
     doaj_export_subparsers.add_parser(
         "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
+    )
+
+    doaj_export_subparsers.add_parser(
+        "delete", help="Deleta documentos", parents=[articlemeta_parser(sargs)],
     )
 
     args = parser.parse_args(sargs)
