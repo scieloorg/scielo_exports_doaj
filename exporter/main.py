@@ -321,6 +321,16 @@ def process_extracted_documents(
     return
 
 
+def process_documents_in_bulk(
+    get_document:callable,
+    index:str,
+    index_command:str,
+    output_path:pathlib.Path,
+    pids_by_collection:typing.Dict[str, list],
+) -> None:
+    pass
+
+
 def articlemeta_parser(sargs):
     """Parser para capturar informações sobre conexão com o Article Meta"""
 
@@ -397,23 +407,24 @@ def main_exporter(sargs):
     subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
 
     doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
-    doaj_export_subparsers = doaj_parser.add_subparsers(
+    doaj_subparsers = doaj_parser.add_subparsers(
         title="DOAJ Command", dest="doaj_command", required=True,
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_export_parser = doaj_subparsers.add_parser(
         "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
+    doaj_export_parser.add_argument("--bulk", action="store_true", help="Exporta documentos em lote")
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "delete", help="Deleta documentos", parents=[articlemeta_parser(sargs)],
     )
 
@@ -476,4 +487,7 @@ def main_exporter(sargs):
             params["pids_by_collection"].setdefault(doc["collection"], [])
             params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
-    process_extracted_documents(**params)
+    if getattr(args, "bulk", None):
+        process_documents_in_bulk(**params)
+    else:
+        process_extracted_documents(**params)

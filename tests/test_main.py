@@ -1024,7 +1024,7 @@ class MainExporterTestMixin:
                     self.index_command,
                     "--pid",
                     "S0100-19651998000200002",
-                ]
+                ] + self.extra_args
             )
         self.assertEqual(
             str(exc.exception),
@@ -1049,7 +1049,7 @@ class MainExporterTestMixin:
                         self.index_command,
                         "--pids",
                         str(pids_file),
-                    ]
+                    ] + self.extra_args
                 )
             self.assertEqual(
                 str(exc.exception),
@@ -1070,7 +1070,7 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
         MockAMClient.assert_called_with(connection="thrift")
 
@@ -1088,7 +1088,7 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
@@ -1106,7 +1106,7 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
         self.mk_process_documents.assert_called_with(
             get_document=mk_document,
@@ -1138,7 +1138,7 @@ class MainExporterTestMixin:
                     "spa",
                     "--pids",
                     str(pids_file),
-                ]
+                ] + self.extra_args
             )
         self.mk_process_documents.assert_called_with(
             get_document=mk_document,
@@ -1169,7 +1169,7 @@ class MainExporterTestMixin:
                     self.index,
                     self.index_command,
                 ] +
-                args
+                args + self.extra_args
             )
 
         mk_get_valid_datetime.assert_has_calls(
@@ -1214,7 +1214,7 @@ class MainExporterTestMixin:
                         self.index,
                         self.index_command,
                     ] +
-                    args
+                    args + self.extra_args
                 )
                 mk_documents_identifiers.assert_called_with(**call_params)
 
@@ -1253,7 +1253,7 @@ class MainExporterTestMixin:
                 "01-01-2021",
                 "--until-date",
                 "07-01-2021",
-            ],
+            ] + self.extra_args
         )
         self.mk_process_documents.assert_called_once_with(
             get_document=mk_document,
@@ -1272,9 +1272,24 @@ class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "export"
     output_path = pathlib.Path("output.log")
+    extra_args = []
 
     def setUp(self):
         self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
+
+
+class DOAJExportinBulkMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+    extra_args = ["--bulk"]
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_documents_in_bulk")
         self.mk_process_documents = self.patcher.start()
 
     def tearDown(self):
@@ -1285,6 +1300,7 @@ class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
     output_path = pathlib.Path("output.log")
+    extra_args = []
 
     def setUp(self):
         self.patcher = mock.patch("exporter.main.process_extracted_documents")
@@ -1297,6 +1313,7 @@ class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
 class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "get"
+    extra_args = []
 
     def setUp(self):
         self.output_path = pathlib.Path(tempfile.mkdtemp())
@@ -1312,6 +1329,7 @@ class DOAJDeleteMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "delete"
     output_path = pathlib.Path("output.log")
+    extra_args = []
 
     def setUp(self):
         self.patcher = mock.patch("exporter.main.process_extracted_documents")
