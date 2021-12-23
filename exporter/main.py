@@ -92,16 +92,12 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         self._pid = article.data.get("code", "")
 
     @property
+    def params_request(self) -> dict:
+        return self.index_exporter.params_request
+
+    @property
     def post_request(self) -> dict:
         return self.index_exporter.post_request
-
-    @property
-    def get_request(self) -> dict:
-        return self.index_exporter.get_request
-
-    @property
-    def delete_request(self) -> dict:
-        return self.index_exporter.delete_request
 
     def put_request(self, data: dict) -> dict:
         return self.index_exporter.put_request(data)
@@ -125,7 +121,10 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _export(self):
         resp = self._send_http_request(
-            requests.post, self.index_exporter.crud_article_put_url, **self.post_request
+            requests.post,
+            self.index_exporter.crud_article_put_url,
+            self.params_request,
+            self.post_request,
         )
         try:
             resp.raise_for_status()
@@ -141,7 +140,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _update(self):
         get_resp = self._send_http_request(
-            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+            requests.get,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             get_resp.raise_for_status()
@@ -154,7 +155,8 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             put_resp = self._send_http_request(
                 requests.put,
                 self.index_exporter.crud_article_url,
-                **put_req,
+                self.params_request,
+                put_req,
             )
             try:
                 put_resp.raise_for_status()
@@ -169,7 +171,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _get(self):
         get_resp = self._send_http_request(
-            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+            requests.get,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             get_resp.raise_for_status()
@@ -184,7 +188,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _delete(self):
         delete_resp = self._send_http_request(
-            requests.delete, self.index_exporter.crud_article_url, **self.delete_request,
+            requests.delete,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             delete_resp.raise_for_status()
