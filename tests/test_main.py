@@ -10,7 +10,12 @@ import articlemeta.client as articlemeta_client
 import requests
 from xylose import scielodocument
 
-from exporter import AMClient, process_extracted_documents, doaj
+from exporter import (
+    AMClient,
+    process_extracted_documents,
+    process_documents_in_bulk,
+    doaj,
+)
 from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidExporterInitData,
@@ -922,6 +927,160 @@ class DeleteExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
             for pid in fake_pids:
                 with self.subTest(pid=pid):
                     self.assertIn(pid, file_content)
+
+
+@mock.patch("exporter.main.PoisonPill")
+@mock.patch("exporter.main.execute_get_document")
+@mock.patch("exporter.main.XyloseArticlesListExporterAdapter")
+class ProcessDocumentsInBulkTestMixin:
+    def test_get_document_called_for_each_document(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        for pid in self.pids:
+            mk_execute_get_document.assert_any_call(
+                get_document=self.mk_get_document,
+                collection="scl",
+                pid=pid,
+                poison_pill=MockPoisonPill(),
+            )
+
+    def test_logs_error_if_execute_get_document_raises_exception(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [
+            self.articles[0],
+            exc,
+            self.articles[2],
+        ]
+        with mock.patch("exporter.main.logger.error") as mk_logger_error:
+            process_documents_in_bulk(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=self.output_path,
+                pids_by_collection={"scl": self.pids},
+            )
+            mk_logger_error.assert_called_once_with(
+                "Não foi possível processar documento '%s': '%s'.",
+                "S0100-19651998000200002",
+                exc
+            )
+
+    def test_XyloseArticlesListExporterAdapter_created(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [
+            self.articles[0],
+            exc,
+            self.articles[2],
+        ]
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        MockXyloseArticlesListExporterAdapter.assert_called_once_with(
+            self.index, self.index_command, {self.articles[0], self.articles[2]}
+        )
+
+    def test_XyloseArticlesListExporterAdapter_not_created_if_no_documents(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [exc, exc, exc]
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        MockXyloseArticlesListExporterAdapter.assert_not_called()
+
+    def test_XyloseArticlesListExporterAdapter_command_function_called(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        mk_command_function = mock.Mock(return_value=[{}])
+        MockXyloseArticlesListExporterAdapter.return_value.command_function = \
+            mk_command_function
+        mk_execute_get_document.side_effect = self.articles
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        mk_command_function.assert_called_once_with()
+
+    def test_writes_command_function_result(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        fake_export_response = [{ "pid": pid, "status": "OK" } for pid in self.pids]
+        mk_command_function = mock.Mock(return_value=fake_export_response)
+        MockXyloseArticlesListExporterAdapter.return_value.command_function = \
+            mk_command_function
+        mk_execute_get_document.side_effect = self.articles
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            output_path = pathlib.Path(tmpdirname) / self.output_path
+            process_documents_in_bulk(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=output_path,
+                pids_by_collection={"scl": self.pids},
+            )
+            with output_path.open(encoding="utf-8") as fp:
+                self.assertEqual(
+                    [json.loads(line) for line in fp],
+                    fake_export_response,
+                )
+
+
+class ExportDocumentsInBulkTest(ProcessDocumentsInBulkTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+    pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
 
 
 class ArticleMetaParserTest(TestCase):
