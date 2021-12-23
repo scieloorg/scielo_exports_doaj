@@ -17,6 +17,7 @@ from exporter.main import (
     IndexExporterHTTPError,
     OriginDataFilterError,
     XyloseArticleExporterAdapter,
+    XyloseArticlesListExporterAdapter,
     process_document,
     articlemeta_parser,
     main_exporter,
@@ -484,6 +485,114 @@ class DeleteXyloseArticleExporterAdapterTest(
                 "pid": self.article.data["code"],
                 "status": "DELETED",
             }
+        )
+
+
+class XyloseArticlesListExporterAdapterTestMixin:
+    def test_raises_exception_if_invalid_index(self):
+        with self.assertRaises(InvalidExporterInitData) as exc:
+            articles_exporter = XyloseArticlesListExporterAdapter(
+                index="abc", command=self.index_command, articles=set(self.articles)
+            )
+        self.assertEqual(str(exc.exception), "Index informado inválido: abc")
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    def test_raises_exception_if_invalid_command(self):
+        for command in ["put", "get"]:
+            with self.subTest(command=command):
+                with self.assertRaises(InvalidExporterInitData) as exc:
+                    articles_exporter = XyloseArticlesListExporterAdapter(
+                        index=self.index, command=command, articles=set(self.articles)
+                    )
+                self.assertEqual(
+                    str(exc.exception), f"Comando informado inválido: {command}"
+                )
+
+
+class PostXyloseArticlesListExporterAdapterTest(
+    XyloseArticlesListExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "export"
+
+    def setUp(self):
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.doaj_ids = [f"doaj-id-{num}" for num in range(1, 4)]
+        for doaj_id, article_json in zip(self.doaj_ids, articles_json):
+            article_json.update({"doaj_id": doaj_id})
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_calls_requests_post_to_doaj_api_with_doaj_post_request(
+        self, mk_requests
+    ):
+        with mock.patch(
+            "exporter.doaj.DOAJExporterXyloseArticle.post_request",
+            new_callable=mock.PropertyMock,
+        ) as mk_post_request:
+            mk_post_request.side_effect = [{"id": doaj_id} for doaj_id in self.doaj_ids]
+            articles_exporter = XyloseArticlesListExporterAdapter(
+                index=self.index, command=self.index_command, articles=set(self.articles),
+            )
+            articles_exporter.command_function()
+            mk_requests.post.assert_called_once_with(
+                url=articles_exporter.bulk_articles_url,
+                params=articles_exporter.params_request,
+                json=[{"id": doaj_id} for doaj_id in self.doaj_ids],
+            )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+        mk_requests.post.return_value.json.return_value = {
+            "id": "doaj-id",
+            "error": "wrong field.",
+        }
+
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            articles_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_returns_exporter_post_response(self, mk_requests):
+        mk_requests.post.return_value.json.return_value = [
+            {
+                "id": article.data["doaj_id"],
+                "location": "br",
+                "status": "OK",
+            }
+            for article in self.articles
+        ]
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        ret = articles_exporter.command_function()
+        self.assertEqual(
+            ret,
+            [
+                {
+                    "pid": article.data["code"],
+                    "index_id": article.data["doaj_id"],
+                    "status": "OK",
+                }
+                for article in self.articles
+            ]
         )
 
 

@@ -219,6 +219,80 @@ class XyloseArticleExporterAdapter(
             return delete_result
 
 
+class XyloseArticlesListExporterAdapter(
+    ExporterAdapterMixin, interfaces.IndexExporterInterface
+):
+    index_exporters: typing.List[interfaces.IndexExporterInterface]
+
+    def __init__(
+        self, index: str, command: str, articles: typing.Set[scielodocument.Article]
+    ):
+        if index == "doaj":
+            self.index_exporters = [
+                {
+                    "pid": article.data["code"],
+                    "index_exporter": doaj.DOAJExporterXyloseArticle(article)
+                }
+                for article in articles
+            ]
+            self.bulk_articles_url = self.index_exporters[0]["index_exporter"].\
+                bulk_articles_url
+        else:
+            raise InvalidExporterInitData(f"Index informado inválido: {index}")
+
+        if command == "export":
+            self._command_function = self._export
+        else:
+            raise InvalidExporterInitData(f"Comando informado inválido: {command}")
+
+        self.index = index
+
+    @property
+    def params_request(self) -> dict:
+        return self.index_exporters[0]["index_exporter"].params_request
+
+    @property
+    def post_request(self) -> dict:
+        return [
+            item["index_exporter"].post_request
+            for item in self.index_exporters
+        ]
+
+    def put_request(self, data: dict) -> dict:
+        pass
+
+    def post_response(self, response: dict) -> dict:
+        resp = []
+        for resp_article in response:
+            for item in self.index_exporters:
+                if item["index_exporter"].id == resp_article["id"]:
+                    new_resp_article = item["index_exporter"].post_response(resp_article)
+                    new_resp_article["pid"] = item["pid"]
+                    resp.append(new_resp_article)
+                    break
+        return resp
+
+    def error_response(self, response: dict) -> dict:
+        return self.index_exporters[0]["index_exporter"].error_response(response)
+
+    def _export(self) -> dict:
+        resp = self._send_http_request(
+            requests.post,
+            self.bulk_articles_url,
+            self.params_request,
+            self.post_request,
+        )
+        try:
+            resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            export_result = self.post_response(resp.json())
+            logger.debug("Resultado do export: %s", export_result)
+            return export_result
+
 
 class PoisonPill:
     def __init__(self):
