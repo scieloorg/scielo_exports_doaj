@@ -566,7 +566,9 @@ def main_exporter(sargs):
     doaj_export_parser = doaj_subparsers.add_parser(
         "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
-    doaj_export_parser.add_argument("--bulk", action="store_true", help="Exporta documentos em lote")
+    doaj_export_parser.add_argument(
+        "--bulk", action="store_true", help="Exporta documentos em lote"
+    )
 
     doaj_subparsers.add_parser(
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
@@ -576,8 +578,11 @@ def main_exporter(sargs):
         "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_subparsers.add_parser(
+    doaj_delete_parser = doaj_subparsers.add_parser(
         "delete", help="Deleta documentos", parents=[articlemeta_parser(sargs)],
+    )
+    doaj_delete_parser.add_argument(
+        "--bulk", action="store_true", help="Deleta documentos em lote"
     )
 
     args = parser.parse_args(sargs)

@@ -1641,3 +1641,17 @@ class DOAJDeleteMainExporterTest(MainExporterTestMixin, TestCase):
 
     def tearDown(self):
         self.mk_process_documents.stop()
+
+
+class DOAJDeleteinBulkMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "delete"
+    output_path = pathlib.Path("output.log")
+    extra_args = ["--bulk"]
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_documents_in_bulk")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
