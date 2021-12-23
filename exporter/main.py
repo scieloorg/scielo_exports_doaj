@@ -246,6 +246,8 @@ class XyloseArticlesListExporterAdapter(
 
         if command == "export":
             self._command_function = self._export
+        elif command == "delete":
+            self._command_function = self._delete
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -259,6 +261,13 @@ class XyloseArticlesListExporterAdapter(
     def post_request(self) -> dict:
         return [
             item["index_exporter"].post_request
+            for item in self.index_exporters
+        ]
+
+    @property
+    def delete_request(self) -> dict:
+        return [
+            item["index_exporter"].id
             for item in self.index_exporters
         ]
 
@@ -298,6 +307,27 @@ class XyloseArticlesListExporterAdapter(
             export_result = self.post_response(resp.json())
             logger.debug("Resultado do export: %s", export_result)
             return export_result
+
+    def _delete(self):
+        resp = self._send_http_request(
+            requests.delete,
+            self.bulk_articles_url,
+            self.params_request,
+            self.delete_request,
+        )
+        try:
+            resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(resp.json())
+            exc_msg = f"Erro ao deletar no {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            delete_result = [
+                { "pid": item["pid"], "status": "DELETED" }
+                for item in self.index_exporters
+            ]
+            logger.debug("Resultado da deleção: %s", delete_result)
+            return delete_result
 
 
 class PoisonPill:

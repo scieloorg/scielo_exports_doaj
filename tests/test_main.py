@@ -662,6 +662,87 @@ class PostXyloseArticlesListExporterAdapterTest(
         )
 
 
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+@mock.patch("exporter.main.requests")
+class DeleteXyloseArticlesListExporterAdapterTest(
+    XyloseArticlesListExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "delete"
+
+    def setUp(self):
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.doaj_ids = [f"doaj-id-{num}" for num in range(1, 4)]
+        for doaj_id, article_json in zip(self.doaj_ids, articles_json):
+            article_json.update({"doaj_id": doaj_id})
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
+
+    def test_delete_request(
+        self, mk_requests
+    ):
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles),
+        )
+        self.assertEqual(
+            sorted(articles_exporter.delete_request),
+            [doaj_id for doaj_id in self.doaj_ids],
+        )
+
+    def test_delete_calls_requests_delete_to_doaj_api_with_doaj_delete_request(
+        self, mk_requests
+    ):
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles),
+        )
+        with mock.patch(
+            "exporter.main.XyloseArticlesListExporterAdapter.delete_request",
+            new_callable=mock.PropertyMock
+        ) as mk_delete_request:
+            mk_delete_request.return_value = [doaj_id for doaj_id in self.doaj_ids]
+            articles_exporter.command_function()
+            mk_requests.delete.assert_called_once_with(
+                url=articles_exporter.bulk_articles_url,
+                params=articles_exporter.params_request,
+                json=[doaj_id for doaj_id in self.doaj_ids],
+            )
+
+    def test_delete_raises_exception_if_delete_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.delete.return_value = mock_resp
+        mk_requests.delete.return_value.json.return_value = {
+            "id": "doaj-id",
+            "error": "wrong field.",
+        }
+
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            articles_exporter.command_function()
+        self.assertEqual(
+            "Erro ao deletar no doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    def test_delete_returns_exporter_delete_response(self, mk_requests):
+        mock_delete_resp = mock.Mock()
+        mk_requests.delete.return_value = mock_delete_resp
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        ret = articles_exporter.command_function()
+        for article in self.articles:
+            pid = article.data["code"]
+            with self.subTest(pid=pid):
+                self.assertIn({ "pid": pid, "status": "DELETED" }, ret)
+
+
 class ProcessDocumentTestMixin:
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter")
