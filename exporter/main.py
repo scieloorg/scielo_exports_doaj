@@ -68,7 +68,33 @@ class AMClient:
         return self._client.documents_by_identifiers(only_identifiers=True, **filter)
 
 
-class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
+class ExporterAdapterMixin:
+
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(),
+        stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
+        retry=tenacity.retry_if_exception_type(
+            (requests.ConnectionError, requests.Timeout),
+        ),
+    )
+    def _send_http_request(
+        self, request_method: callable, url: str, params: json = None, json: json = None
+    ):
+        logger.debug("Enviando requisição HTTP %s", url)
+        kwargs = {}
+        if params:
+            kwargs["params"] = params
+        if json:
+            kwargs["json"] = json
+        return request_method(url=url, **kwargs)
+
+    def command_function(self):
+        return self._command_function()
+
+
+class XyloseArticleExporterAdapter(
+    ExporterAdapterMixin, interfaces.IndexExporterInterface
+):
     index_exporter: interfaces.IndexExporterInterface
 
     def __init__(self, index: str, command: str, article: scielodocument.Article):
@@ -107,17 +133,6 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def error_response(self, response: dict) -> dict:
         return self.index_exporter.error_response(response)
-
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(),
-        stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
-        retry=tenacity.retry_if_exception_type(
-            (requests.ConnectionError, requests.Timeout),
-        ),
-    )
-    def _send_http_request(self, request_method: callable, url: str, **request: json):
-        logger.debug("Enviando requisição HTTP %s", url)
-        return request_method(url=url, **request)
 
     def _export(self):
         resp = self._send_http_request(
@@ -203,8 +218,6 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             logger.debug("Resultado da deleção: %s", delete_result)
             return delete_result
 
-    def command_function(self):
-        return self._command_function()
 
 
 class PoisonPill:
