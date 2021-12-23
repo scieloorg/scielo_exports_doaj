@@ -535,7 +535,7 @@ class DeleteXyloseArticleExporterAdapterTest(
 
 
 class XyloseArticlesListExporterAdapterTestMixin:
-    def test_raises_exception_if_invalid_index(self):
+    def test_raises_exception_if_invalid_index(self, mk_requests):
         with self.assertRaises(InvalidExporterInitData) as exc:
             articles_exporter = XyloseArticlesListExporterAdapter(
                 index="abc", command=self.index_command, articles=set(self.articles)
@@ -543,7 +543,7 @@ class XyloseArticlesListExporterAdapterTestMixin:
         self.assertEqual(str(exc.exception), "Index informado inválido: abc")
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-    def test_raises_exception_if_invalid_command(self):
+    def test_raises_exception_if_invalid_command(self, mk_requests):
         for command in ["put", "get"]:
             with self.subTest(command=command):
                 with self.assertRaises(InvalidExporterInitData) as exc:
@@ -555,6 +555,8 @@ class XyloseArticlesListExporterAdapterTestMixin:
                 )
 
 
+@mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+@mock.patch("exporter.main.requests")
 class PostXyloseArticlesListExporterAdapterTest(
     XyloseArticlesListExporterAdapterTestMixin, TestCase,
 ):
@@ -572,8 +574,6 @@ class PostXyloseArticlesListExporterAdapterTest(
             for article_json in articles_json
         ]
 
-    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-    @mock.patch("exporter.main.requests")
     def test_export_calls_requests_post_to_doaj_api_with_doaj_post_request(
         self, mk_requests
     ):
@@ -1130,6 +1130,23 @@ class ProcessDocumentsInBulkTestMixin:
 class ExportDocumentsInBulkTest(ProcessDocumentsInBulkTestMixin, TestCase):
     index = "doaj"
     index_command = "export"
+    output_path = pathlib.Path("output.log")
+    pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
+
+
+class DeleteDocumentsInBulkTest(ProcessDocumentsInBulkTestMixin, TestCase):
+    index = "doaj"
+    index_command = "delete"
     output_path = pathlib.Path("output.log")
     pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
 
