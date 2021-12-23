@@ -69,6 +69,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             return url
 
     @property
+    def params_request(self) -> dict:
+        return {"api_key": config.get("DOAJ_API_KEY")}
+
+    @property
     def post_request(self) -> dict:
         self._data["created_date"] = self._data["last_updated"] = self._now
         self._data.setdefault("bibjson", {})
@@ -79,22 +83,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
-        return {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-            "json": self._data
-        }
-
-    @property
-    def get_request(self) -> dict:
-        return {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-        }
-
-    @property
-    def delete_request(self) -> dict:
-        return {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-        }
+        return self._data
 
     def put_request(self, data: dict) -> dict:
         self._data = data
@@ -107,10 +96,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
-        return {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-            "json": self._data
-        }
+        return self._data
 
     def post_response(self, response: dict) -> dict:
         return {
