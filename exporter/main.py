@@ -360,6 +360,14 @@ def process_document(
     return article_adapter.command_function()
 
 
+def log_exception(exception, job, logger=logger):
+    logger.error(
+        "Não foi possível processar documento '%s': '%s'.",
+        job["pid"],
+        exception,
+    )
+
+
 def process_extracted_documents(
     get_document:callable,
     index:str,
@@ -396,13 +404,6 @@ def process_extracted_documents(
                 with path.open("a", encoding="utf-8") as fp:
                     fp.write(json.dumps(result) + "\n")
 
-        def log_exception(exception, job, logger=logger):
-            logger.error(
-                "Não foi possível processar documento '%s': '%s'.",
-                job["pid"],
-                exception,
-            )
-
         executor = JobExecutor(
             process_document,
             max_workers=4,
@@ -414,6 +415,23 @@ def process_extracted_documents(
     return
 
 
+def execute_get_document(
+    get_document: callable,
+    collection: str,
+    pid: str,
+    poison_pill: PoisonPill = PoisonPill(),
+):
+    if poison_pill.poisoned:
+        return
+
+    logger.debug('Executando get_document para PID "%s"', pid)
+    document = get_document(collection=collection, pid=pid)
+    if not document or not document.data:
+        raise ArticleMetaDocumentNotFound()
+
+    return document
+
+
 def process_documents_in_bulk(
     get_document:callable,
     index:str,
@@ -421,7 +439,42 @@ def process_documents_in_bulk(
     output_path:pathlib.Path,
     pids_by_collection:typing.Dict[str, list],
 ) -> None:
-    pass
+    jobs = [
+        { "get_document": get_document, "collection": collection, "pid": pid }
+        for collection, pids in pids_by_collection.items()
+        for pid in pids
+    ]
+
+    documents = set()
+    with tqdm(total=len(jobs)) as pbar:
+
+        def update_bar(pbar=pbar):
+            pbar.update(1)
+
+        def write_result(result, job, path:pathlib.Path=output_path):
+            documents.add(result)
+
+        executor = JobExecutor(
+            execute_get_document,
+            max_workers=4,
+            success_callback=write_result,
+            exception_callback=log_exception,
+            update_bar=update_bar,
+        )
+        executor.run(jobs)
+
+    if documents:
+        articles_adapter = XyloseArticlesListExporterAdapter(
+            index, index_command, documents
+        )
+        ret = articles_adapter.command_function()
+
+        logger.debug('Gravando resultado em arquivo %s', output_path)
+        with output_path.open("w", encoding="utf-8") as fp:
+            for line in ret:
+                fp.write(json.dumps(line) + "\n")
+
+    return
 
 
 def articlemeta_parser(sargs):
