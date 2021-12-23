@@ -104,6 +104,18 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
             self.doaj_document.crud_article_put_url,
         )
 
+    def test_search_journal_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "search/journals/",
+            self.doaj_document.search_journal_url,
+        )
+
+    def test_bulk_articles_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "bulk/articles",
+            self.doaj_document.bulk_articles_url,
+        )
+
     def test_post_request(self):
         expected = {
             "params": {"api_key": config.get("DOAJ_API_KEY")},

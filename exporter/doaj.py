@@ -44,6 +44,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
         self.crud_article_put_url = f"{self._api_url}articles"
         self.search_journal_url = f"{self._api_url}search/journals/"
+        self.bulk_articles_url = f"{self._api_url}bulk/articles"
 
     @property
     def crud_article_url(self):
