@@ -98,6 +98,12 @@ class DOAJExporterXyloseArticleTest(TestCase):
 
 
 class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_put_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles",
@@ -165,6 +171,12 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
 
 
 class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
@@ -220,6 +232,12 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
 
 
 class DeleteDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],

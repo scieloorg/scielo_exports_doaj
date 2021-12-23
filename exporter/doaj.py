@@ -47,6 +47,17 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self.bulk_articles_url = f"{self._api_url}bulk/articles"
 
     @property
+    def id(self):
+        try:
+            id = self._data["id"]
+        except KeyError:
+            raise DOAJExporterXyloseArticleNoRequestData(
+                "No DOAJ ID for article"
+            ) from None
+        else:
+            return id
+
+    @property
     def crud_article_url(self):
         try:
             url = f'{self._api_url}articles/{self._data["id"]}'
