@@ -171,8 +171,10 @@ class ExportXyloseArticleExporterAdapterTest(
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
-        mock_resp = mock.Mock()
+    def test_export_raises_exception_with_json_error_if_post_raises_400_http_error(
+        self, mk_requests
+    ):
+        mock_resp = mock.Mock(status_code=400)
         mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "HTTP Error"
         )
@@ -189,6 +191,24 @@ class ExportXyloseArticleExporterAdapterTest(
             article_exporter.command_function()
         self.assertEqual(
             "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+
+        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -314,10 +334,10 @@ class UpdateXyloseArticleExporterAdapterTest(
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
     @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
-    def test_update_raises_exception_if_put_raises_http_error(
+    def test_update_raises_exception_with_json_error_if_put_raises_400_http_error(
         self, mk_put_request, mk_requests,
     ):
-        mock_put_resp = mock.Mock()
+        mock_put_resp = mock.Mock(status_code=400)
         mock_put_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "HTTP Error"
         )
@@ -334,6 +354,27 @@ class UpdateXyloseArticleExporterAdapterTest(
             article_exporter.command_function()
         self.assertEqual(
             "Erro ao atualizar o doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_raises_exception_if_put_raises_http_error(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_put_resp = mock.Mock()
+        mock_put_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.put.return_value = mock_put_resp
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro ao atualizar o doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -553,8 +594,10 @@ class PostXyloseArticlesListExporterAdapterTest(
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
-        mock_resp = mock.Mock()
+    def test_export_raises_exception_with_json_error_if_post_raises_400_http_error(
+        self, mk_requests
+    ):
+        mock_resp = mock.Mock(status_code=400)
         mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "HTTP Error"
         )
@@ -571,6 +614,24 @@ class PostXyloseArticlesListExporterAdapterTest(
             articles_exporter.command_function()
         self.assertEqual(
             "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            articles_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})

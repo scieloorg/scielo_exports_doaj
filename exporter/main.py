@@ -144,8 +144,10 @@ class XyloseArticleExporterAdapter(
         try:
             resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(resp.json())
-            exc_msg = f"Erro na exportação ao {self.index}: {exc}. {error_response}"
+            error_response = ""
+            if resp.status_code == 400:
+                error_response = " " + self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}.{error_response}"
             raise IndexExporterHTTPError(exc_msg)
         else:
             export_result = self.post_response(resp.json())
@@ -176,8 +178,10 @@ class XyloseArticleExporterAdapter(
             try:
                 put_resp.raise_for_status()
             except HTTPError as exc:
-                error_response = self.error_response(put_resp.json())
-                exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
+                error_response = ""
+                if put_resp.status_code == 400:
+                    error_response = " " + self.error_response(put_resp.json())
+                exc_msg = f"Erro ao atualizar o {self.index}: {exc}.{error_response}"
                 raise IndexExporterHTTPError(exc_msg)
             else:
                 update_result = { "pid": self._pid, "status": "UPDATED" }
@@ -285,8 +289,10 @@ class XyloseArticlesListExporterAdapter(
         try:
             resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(resp.json())
-            exc_msg = f"Erro na exportação ao {self.index}: {exc}. {error_response}"
+            error_response = ""
+            if resp.status_code == 400:
+                error_response = " " + self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}.{error_response}"
             raise IndexExporterHTTPError(exc_msg)
         else:
             export_result = self.post_response(resp.json())
