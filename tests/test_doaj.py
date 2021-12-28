@@ -195,6 +195,7 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
                 "link": self._expected_bibjson_link(),
                 "title": self._expected_bibjson_title(),
             },
+            "es_type": self.article.document_type,
         }
         expected["bibjson"]["month"], expected["bibjson"]["year"] = \
             self._expected_bibjson_month_and_year()
@@ -280,6 +281,7 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
                 "link": self._expected_bibjson_link(),
                 "title": self._expected_bibjson_title(),
             },
+            "es_type": self.article.document_type,
         }
         expected["bibjson"]["month"], expected["bibjson"]["year"] = \
             self._expected_bibjson_month_and_year()
@@ -494,6 +496,13 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
 
         req = self.http_request_function()
         self.assertIsNone(req["bibjson"].get("month"))
+
+    def test_http_request_undefined_type_if_no_document_type(self):
+        del self.article.data["article"]["v71"]    # v71: document type
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+        req = self.http_request_function()
+        self.assertEqual(req["es_type"], "undefined")
 
     def test_error_response_return_empty_str_if_no_error(self):
         doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)

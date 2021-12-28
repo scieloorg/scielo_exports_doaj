@@ -84,6 +84,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_link()
         self._set_bibjson_title()
         self._set_bibjson_month_and_year()
+        self._set_es_type()
         return self._data
 
     def put_request(self, data: dict) -> dict:
@@ -98,6 +99,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_link()
         self._set_bibjson_title()
         self._set_bibjson_month_and_year()
+        self._set_es_type()
         return self._data
 
     def post_response(self, response: dict) -> dict:
@@ -280,6 +282,10 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
 
             if pub_date.year:
                 self._data["bibjson"]["year"] = pub_date.year
+
+    def _set_es_type(self):
+        if self._article.document_type:
+            self._data["es_type"] = self._article.document_type
 
     def command_function(self):
         pass
