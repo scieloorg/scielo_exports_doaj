@@ -114,12 +114,26 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         if not self._article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
 
+        affiliation_institutions = {
+            mixed_affiliation["index"]: mixed_affiliation["institution"]
+            for mixed_affiliation in self._article.mixed_affiliations
+        }
         self._data["bibjson"].setdefault("author", [])
         for author in self._article.authors:
-            author_name = " ".join(
-                [author.get('given_names', ''), author.get('surname', '')]
-            )
-            self._data["bibjson"]["author"].append({"name": author_name})
+            author_data = {
+                "name": " ".join(
+                    [author.get("given_names", ""), author.get("surname", "")]
+                )
+            }
+            affiliation_index = author.get("xref", [""])[0]
+            if affiliation_index:
+                author_data["affiliation"] = affiliation_institutions.get(
+                    affiliation_index, ""
+                )
+            if author.get("orcid", ""):
+                author_data["orcid_id"] = author["orcid"],
+
+            self._data["bibjson"]["author"].append(author_data)
 
     def _get_registered_journal_issn(self):
         for journal_attr in ["electronic_issn", "print_issn"]:

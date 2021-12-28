@@ -1,3 +1,4 @@
+import json
 from unittest import TestCase, mock
 
 import vcr
@@ -8,12 +9,14 @@ from exporter import AMClient, doaj, config
 
 
 class DOAJExporterXyloseArticleTest(TestCase):
-    @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
+    # @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     def setUp(self):
-        client = AMClient()
-        self.article = client.document(collection="scl", pid="S0100-19651998000200002")
-        self.article.data["doaj_id"] = "doaj-id-123456"
+        # client = AMClient()
+        # self.article = client.document(collection="scl", pid="S0100-19651998000200002")
+        with open("tests/fixtures/fake-article.json") as fp:
+            article_json = json.load(fp)
+        self.article = scielodocument.Article(article_json)
         self.doaj_document = doaj.DOAJExporterXyloseArticle(
             article=self.article, now=self._fake_utcnow()
         )
@@ -31,14 +34,28 @@ class DOAJExporterXyloseArticleTest(TestCase):
         return self.article.original_abstract()
 
     def _expected_bibjson_author(self):
-        return [
-            {
+        affiliation_institutions = {
+            mixed_affiliation["index"]: mixed_affiliation["institution"]
+            for mixed_affiliation in self.article.mixed_affiliations
+        }
+
+        bibjson_author = []
+        for author in self.article.authors:
+            _author = {
                 "name": " ".join(
-                    [author.get('given_names', ''), author.get('surname', '')]
-                )
+                    [author.get("given_names", ""), author.get("surname", "")]
+                ),
             }
-            for author in self.article.authors
-        ]
+            affiliation_index = author.get("xref", [""])[0]
+            if affiliation_index:
+                _author["affiliation"] = affiliation_institutions.get(
+                    affiliation_index, ""
+                )
+            if author.get("orcid", ""):
+                _author["orcid_id"] = author["orcid"],
+            bibjson_author.append(_author)
+        return bibjson_author
+
 
     def _expected_bibjson_identifier(self):
         identifier = []
@@ -282,6 +299,18 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         with self.assertRaises(doaj.DOAJExporterXyloseArticleNoAuthorsException) as exc:
             self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
             self.http_request_function()
+
+    def test_http_request_has_no_author_affiliation_if_no_affiliation(self):
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        for author in req["bibjson"]["author"]:
+            self.assertIsNone(author.get("affiliation"))
+
+    def test_http_request_has_no_author_orcid_id_if_no_orcid(self):
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        for author in req["bibjson"]["author"]:
+            self.assertIsNone(author.get("orcid_id"))
 
     def test_http_request_raises_exception_if_no_eissn_nor_pissn(self):
         self.article.journal.electronic_issn = None
