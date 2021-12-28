@@ -1,6 +1,7 @@
 import json
 import re
 from unittest import TestCase, mock
+from datetime import datetime
 
 import vcr
 import requests
@@ -137,6 +138,17 @@ class DOAJExporterXyloseArticleTest(TestCase):
     def _expected_bibjson_title(self):
         return self.article.original_title()
 
+    def _expected_bibjson_month_and_year(self):
+        if self.article.document_publication_date:
+            pub_date = datetime.strptime(
+                self.article.document_publication_date, "%Y-%m-%d"
+            )
+        else:
+            pub_date = datetime.strptime(
+                self.article.issue_publication_date, "%Y-%m"
+            )
+        return pub_date.month, pub_date.year
+
 
 class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
     def test_id(self):
@@ -184,6 +196,8 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
                 "title": self._expected_bibjson_title(),
             },
         }
+        expected["bibjson"]["month"], expected["bibjson"]["year"] = \
+            self._expected_bibjson_month_and_year()
         self.assertEqual(
             expected, self.doaj_document.post_request
         )
@@ -267,6 +281,8 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
                 "title": self._expected_bibjson_title(),
             },
         }
+        expected["bibjson"]["month"], expected["bibjson"]["year"] = \
+            self._expected_bibjson_month_and_year()
         self.assertEqual(
             expected, self.doaj_document.put_request(fake_get_resp)
         )
@@ -470,6 +486,14 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
             self.article.issue.sections.get(section_code, {}).get(original_lang),
             req["bibjson"]["title"],
         )
+
+    def test_http_request_no_month_if_no_article_month(self):
+        if self.article.data["article"].get("v223"):    # v223: document publication date
+            self.article.data["article"].pop("v223")
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+
+        req = self.http_request_function()
+        self.assertIsNone(req["bibjson"].get("month"))
 
     def test_error_response_return_empty_str_if_no_error(self):
         doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)

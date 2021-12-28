@@ -1,5 +1,6 @@
 import typing
 import re
+from datetime import datetime
 
 import requests
 from xylose import scielodocument
@@ -82,6 +83,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
+        self._set_bibjson_month_and_year()
         return self._data
 
     def put_request(self, data: dict) -> dict:
@@ -95,6 +97,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
+        self._set_bibjson_month_and_year()
         return self._data
 
     def post_response(self, response: dict) -> dict:
@@ -259,6 +262,24 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             )
 
         self._data["bibjson"]["title"] = title
+
+    def _set_bibjson_month_and_year(self):
+        str_pub_date = self._article.document_publication_date or self._article.issue_publication_date
+        try:
+            pub_date = datetime.strptime(str_pub_date, "%Y-%m-%d")
+        except ValueError:
+            try:
+                pub_date = datetime.strptime(str_pub_date, "%Y-%m")
+            except ValueError:
+                pub_date = None
+                self._data["bibjson"]["year"] = str_pub_date
+
+        if pub_date:
+            if pub_date.month:
+                self._data["bibjson"]["month"] = pub_date.month
+
+            if pub_date.year:
+                self._data["bibjson"]["year"] = pub_date.year
 
     def command_function(self):
         pass
