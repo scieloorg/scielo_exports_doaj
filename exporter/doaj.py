@@ -1,4 +1,5 @@
 import typing
+import re
 
 import requests
 from xylose import scielodocument
@@ -165,14 +166,34 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 {"id": self._article.doi, "type": "doi"}
             )
 
+    def _get_issue_number(self):
+        issue = self._article.issue
+        label_issue = issue.number.replace("ahead", "") if issue.number else ""
+
+        if issue.supplement_number:
+            label_issue += f" suppl {issue.supplement_number}"
+
+        if issue.supplement_volume:
+            label_issue += f" suppl {issue.supplement_volume}"
+
+        label_issue = re.compile(r"^0 ").sub("", label_issue)
+        label_issue = re.compile(r" 0$").sub("", label_issue)
+        return label_issue.strip()
+
     def _set_bibjson_journal(self):
         journal = {}
 
-        def _set_journal_field(journal, article, field, field_to_set, required=False):
-            journal_field = getattr(self._article.journal, field)
-            if journal_field:
-                journal[field_to_set] = journal_field
-            elif not journal_field and required:
+        def _set_journal_field(
+            journal, article_object, field, field_to_set, required=False
+        ):
+            if article_object:
+                object = getattr(self._article, article_object)
+            else:
+                object = self._article
+            object_field = getattr(object, field)
+            if object_field:
+                journal[field_to_set] = object_field
+            elif not object_field and required:
                 raise DOAJExporterXyloseArticleNoJournalRequiredFields()
 
 
@@ -183,11 +204,17 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             country_code, __ = publisher_country
             journal["country"] = country_code
 
-        _set_journal_field(journal, self._article, "languages", "language", required=True)
+        _set_journal_field(journal, "journal", "languages", "language", required=True)
         _set_journal_field(
-            journal, self._article, "publisher_name", "publisher", required=True
+            journal, "journal", "publisher_name", "publisher", required=True
         )
-        _set_journal_field(journal, self._article, "title", "title", required=True)
+        _set_journal_field(journal, "journal", "title", "title", required=True)
+        _set_journal_field(journal, "issue", "volume", "volume")
+        issue_number = self._get_issue_number()
+        if issue_number:
+            journal["number"] = issue_number
+        _set_journal_field(journal, None, "start_page", "start_page")
+        _set_journal_field(journal, None, "end_page", "end_page")
 
         self._data["bibjson"]["journal"] = journal
 

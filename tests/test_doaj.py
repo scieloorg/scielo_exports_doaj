@@ -1,4 +1,5 @@
 import json
+import re
 from unittest import TestCase, mock
 
 import vcr
@@ -9,11 +10,8 @@ from exporter import AMClient, doaj, config
 
 
 class DOAJExporterXyloseArticleTest(TestCase):
-    # @vcr.use_cassette("tests/fixtures/vcr_cassettes/doaj_exporter.yml")
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     def setUp(self):
-        # client = AMClient()
-        # self.article = client.document(collection="scl", pid="S0100-19651998000200002")
         with open("tests/fixtures/fake-article.json") as fp:
             article_json = json.load(fp)
         self.article = scielodocument.Article(article_json)
@@ -69,6 +67,20 @@ class DOAJExporterXyloseArticleTest(TestCase):
         identifier.append({"id": self.article.doi, "type": "doi"})
         return identifier
 
+    def _expected_issue_number(self):
+        issue =  self.article.issue
+        label_issue = issue.number.replace("ahead", "") if issue.number else ""
+
+        if issue.supplement_number:
+            label_issue += f" suppl {issue.supplement_number}"
+
+        if issue.supplement_volume:
+            label_issue += f" suppl {issue.supplement_volume}"
+
+        label_issue = re.compile(r"^0 ").sub("", label_issue)
+        label_issue = re.compile(r" 0$").sub("", label_issue)
+        return label_issue.strip()
+
     def _expected_bibjson_journal(self):
         expected = {}
         publisher_country = self.article.journal.publisher_country
@@ -84,6 +96,18 @@ class DOAJExporterXyloseArticleTest(TestCase):
         title = self.article.journal.title
         if title:
             expected["title"] = title
+        volume = self.article.issue.volume
+        if volume:
+            expected["volume"] = volume
+        number = self._expected_issue_number()
+        if number:
+            expected["number"] = number
+        start_page = self.article.start_page
+        if start_page:
+            expected["start_page"] = start_page
+        end_page = self.article.end_page
+        if end_page:
+            expected["end_page"] = end_page
 
         return expected
 
@@ -372,6 +396,43 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         ) as exc:
             self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
             self.http_request_function()
+
+    def test_http_request_has_no_volume_if_no_article_issue_volume(self):
+        del self.article.issue.data["issue"]["v31"]    # v31: volume
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertIsNone(req["bibjson"]["journal"].get("volume"))
+
+    def test_http_request_has_no_number_if_no_article_issue_number(self):
+        del self.article.issue.data["issue"]["v32"]    # v32: number
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertIsNone(req["bibjson"]["journal"].get("number"))
+
+    def test_http_request_has_suppl_volume_if_suppl_volume(self):
+        self.article.issue.data["issue"].update({"v131": [{'_': "1"}]})
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertEqual(
+            req["bibjson"]["journal"]["number"],
+            f"{self.article.issue.number} suppl {self.article.issue.supplement_volume}"
+        )
+
+    def test_http_request_has_suppl_number_if_suppl_number(self):
+        self.article.issue.data["issue"].update({"v132": [{'_': "1"}]})
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertEqual(
+            req["bibjson"]["journal"]["number"],
+            f"{self.article.issue.number} suppl {self.article.issue.supplement_number}"
+        )
+
+    def test_http_request_has_no_start_end_page_if_no_article_start_end_page(self):
+        del self.article.data["article"]["v14"]    # v14: start and end page
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        self.assertIsNone(req["bibjson"]["journal"].get("start_page"))
+        self.assertIsNone(req["bibjson"]["journal"].get("end_page"))
 
     def test_http_request_has_no_keywords_if_no_article_keywords(self):
         del self.article.data["article"]["v85"]    # v85: keywords
