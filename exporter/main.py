@@ -267,13 +267,10 @@ class XyloseArticlesListExporterAdapter(
 
     def post_response(self, response: dict) -> dict:
         resp = []
-        for resp_article in response:
-            for item in self.index_exporters:
-                if item["index_exporter"].id == resp_article["id"]:
-                    new_resp_article = item["index_exporter"].post_response(resp_article)
-                    new_resp_article["pid"] = item["pid"]
-                    resp.append(new_resp_article)
-                    break
+        for item, resp_article in zip(self.index_exporters, response):
+            new_resp_article = item["index_exporter"].post_response(resp_article)
+            new_resp_article["pid"] = item["pid"]
+            resp.append(new_resp_article)
         return resp
 
     def error_response(self, response: dict) -> dict:

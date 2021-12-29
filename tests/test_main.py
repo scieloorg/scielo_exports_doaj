@@ -565,8 +565,6 @@ class PostXyloseArticlesListExporterAdapterTest(
         with open("tests/fixtures/full-articles.json") as fp:
             articles_json = json.load(fp)
         self.doaj_ids = [f"doaj-id-{num}" for num in range(1, 4)]
-        for doaj_id, article_json in zip(self.doaj_ids, articles_json):
-            article_json.update({"doaj_id": doaj_id})
         self.articles = [
             scielodocument.Article(article_json)
             for article_json in articles_json
@@ -639,14 +637,15 @@ class PostXyloseArticlesListExporterAdapterTest(
     def test_export_returns_exporter_post_response(self, mk_requests):
         mk_requests.post.return_value.json.return_value = [
             {
-                "id": article.data["doaj_id"],
+                "id": doaj_id,
                 "location": "br",
                 "status": "OK",
             }
-            for article in self.articles
+            for doaj_id in self.doaj_ids
         ]
+        articles = set(self.articles)
         articles_exporter = XyloseArticlesListExporterAdapter(
-            index=self.index, command=self.index_command, articles=set(self.articles)
+            index=self.index, command=self.index_command, articles=articles
         )
         ret = articles_exporter.command_function()
         self.assertEqual(
@@ -654,10 +653,10 @@ class PostXyloseArticlesListExporterAdapterTest(
             [
                 {
                     "pid": article.data["code"],
-                    "index_id": article.data["doaj_id"],
+                    "index_id": doaj_id,
                     "status": "OK",
                 }
-                for article in self.articles
+                for doaj_id, article in zip(self.doaj_ids, articles)
             ]
         )
 
