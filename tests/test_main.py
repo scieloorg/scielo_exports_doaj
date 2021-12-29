@@ -590,8 +590,6 @@ class PostXyloseArticlesListExporterAdapterTest(
                 json=[{"id": doaj_id} for doaj_id in self.doaj_ids],
             )
 
-    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-    @mock.patch("exporter.main.requests")
     def test_export_raises_exception_with_json_error_if_post_raises_400_http_error(
         self, mk_requests
     ):
@@ -614,8 +612,6 @@ class PostXyloseArticlesListExporterAdapterTest(
             "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
         )
 
-    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-    @mock.patch("exporter.main.requests")
     def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
         mock_resp = mock.Mock()
         mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
@@ -632,8 +628,6 @@ class PostXyloseArticlesListExporterAdapterTest(
             "Erro na exportação ao doaj: HTTP Error.", str(exc.exception)
         )
 
-    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
-    @mock.patch("exporter.main.requests")
     def test_export_returns_exporter_post_response(self, mk_requests):
         mk_requests.post.return_value.json.return_value = [
             {
