@@ -50,8 +50,13 @@ class DOAJExporterXyloseArticleTest(TestCase):
                 _author["affiliation"] = affiliation_institutions.get(
                     affiliation_index, ""
                 )
-            if author.get("orcid", ""):
-                _author["orcid_id"] = author["orcid"],
+            if author.get("orcid"):
+                valid_orcid = re.fullmatch(
+                    doaj.ORCID_REGEX_VALIDATION, f'{doaj.ORCID_URL}/{author["orcid"]}'
+                )
+                if valid_orcid:
+                    _author["orcid_id"] = valid_orcid.string
+
             bibjson_author.append(_author)
         return bibjson_author
 
@@ -347,6 +352,14 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         req = self.http_request_function()
         for author in req["bibjson"]["author"]:
             self.assertIsNone(author.get("affiliation"))
+
+    def test_http_request_has_no_author_orcid_id_if_no_valid_orcid(self):
+        for author_data in self.article.data["article"]["v10"]:
+            author_data.update({"k": "invalid-orcid"})
+        self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
+        req = self.http_request_function()
+        for author in req["bibjson"]["author"]:
+            self.assertIsNone(author.get("orcid_id"))
 
     def test_http_request_has_no_author_orcid_id_if_no_orcid(self):
         self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)

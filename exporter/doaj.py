@@ -8,6 +8,10 @@ from xylose import scielodocument
 from exporter import interfaces, config, utils
 
 
+ORCID_URL = "https://orcid.org"
+ORCID_REGEX_VALIDATION = r"^https://orcid\.org/[0-9]{4}-[0-9]{4}-[0-9]{4}-\d{3}[\dX]$"
+
+
 class DOAJExporterXyloseArticleNoRequestData(Exception):
     pass
 
@@ -136,8 +140,12 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 author_data["affiliation"] = affiliation_institutions.get(
                     affiliation_index, ""
                 )
-            if author.get("orcid", ""):
-                author_data["orcid_id"] = author["orcid"],
+            if author.get("orcid"):
+                valid_orcid = re.fullmatch(
+                    ORCID_REGEX_VALIDATION, f'{ORCID_URL}/{author["orcid"]}'
+                )
+                if valid_orcid:
+                    author_data["orcid_id"] = valid_orcid.string
 
             self._data["bibjson"]["author"].append(author_data)
 
