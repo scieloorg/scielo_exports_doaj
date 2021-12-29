@@ -51,9 +51,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         try:
             id = self._data["id"]
         except KeyError:
-            raise DOAJExporterXyloseArticleNoRequestData(
-                "No DOAJ ID for article"
-            ) from None
+            id = None
         else:
             return id
 
