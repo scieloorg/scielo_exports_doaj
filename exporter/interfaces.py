@@ -3,15 +3,11 @@ from abc import ABC, abstractmethod
 
 class IndexExporterInterface(ABC):
     @abstractmethod
+    def params_request(self) -> dict:
+        pass
+
+    @abstractmethod
     def post_request(self) -> dict:
-        pass
-
-    @abstractmethod
-    def get_request(self) -> dict:
-        pass
-
-    @abstractmethod
-    def delete_request(self) -> dict:
         pass
 
     @abstractmethod

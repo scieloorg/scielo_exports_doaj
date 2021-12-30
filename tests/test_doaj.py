@@ -98,28 +98,49 @@ class DOAJExporterXyloseArticleTest(TestCase):
 
 
 class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_put_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles",
             self.doaj_document.crud_article_put_url,
         )
 
+    def test_search_journal_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "search/journals/",
+            self.doaj_document.search_journal_url,
+        )
+
+    def test_bulk_articles_url(self):
+        self.assertEqual(
+            config.get("DOAJ_API_URL") + "bulk/articles",
+            self.doaj_document.bulk_articles_url,
+        )
+
+    def test_params_request(self):
+        self.assertEqual(
+            self.doaj_document.params_request,
+            {"api_key": config.get("DOAJ_API_KEY")},
+        )
+
     def test_post_request(self):
         expected = {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-            "json": {
-                "id": self.article.data["doaj_id"],
-                "created_date": self._expected_created_date(),
-                "last_updated": self._expected_last_updated(),
-                "bibjson": {
-                    "abstract": self._expected_bibjson_abstract(),
-                    "author": self._expected_bibjson_author(),
-                    "identifier": self._expected_bibjson_identifier(),
-                    "journal": self._expected_bibjson_journal(),
-                    "keywords": self._expected_bibjson_keywords(),
-                    "link": self._expected_bibjson_link(),
-                    "title": self._expected_bibjson_title(),
-                },
+            "id": self.article.data["doaj_id"],
+            "created_date": self._expected_created_date(),
+            "last_updated": self._expected_last_updated(),
+            "bibjson": {
+                "abstract": self._expected_bibjson_abstract(),
+                "author": self._expected_bibjson_author(),
+                "identifier": self._expected_bibjson_identifier(),
+                "journal": self._expected_bibjson_journal(),
+                "keywords": self._expected_bibjson_keywords(),
+                "link": self._expected_bibjson_link(),
+                "title": self._expected_bibjson_title(),
             },
         }
         self.assertEqual(
@@ -153,16 +174,22 @@ class PostDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
 
 
 class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
             self.doaj_document.crud_article_url,
         )
 
-    def test_get_request(self):
-        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
+    def test_params_request(self):
         self.assertEqual(
-            expected, self.doaj_document.get_request
+            self.doaj_document.params_request,
+            {"api_key": config.get("DOAJ_API_KEY")},
         )
 
     def test_put_request(self):
@@ -186,20 +213,17 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
             },
         }
         expected = {
-            "params": {"api_key": config.get("DOAJ_API_KEY")},
-            "json": {
-                "id": self.article.data["doaj_id"],
-                "created_date": "2020-01-01T00:00:00Z",
-                "last_updated": self._expected_last_updated(),
-                "bibjson": {
-                    "abstract": self._expected_bibjson_abstract(),
-                    "author": self._expected_bibjson_author(),
-                    "identifier": self._expected_bibjson_identifier(),
-                    "journal": self._expected_bibjson_journal(),
-                    "keywords": self._expected_bibjson_keywords(),
-                    "link": self._expected_bibjson_link(),
-                    "title": self._expected_bibjson_title(),
-                },
+            "id": self.article.data["doaj_id"],
+            "created_date": "2020-01-01T00:00:00Z",
+            "last_updated": self._expected_last_updated(),
+            "bibjson": {
+                "abstract": self._expected_bibjson_abstract(),
+                "author": self._expected_bibjson_author(),
+                "identifier": self._expected_bibjson_identifier(),
+                "journal": self._expected_bibjson_journal(),
+                "keywords": self._expected_bibjson_keywords(),
+                "link": self._expected_bibjson_link(),
+                "title": self._expected_bibjson_title(),
             },
         }
         self.assertEqual(
@@ -208,16 +232,22 @@ class PutDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
 
 
 class DeleteDOAJExporterXyloseArticleTest(DOAJExporterXyloseArticleTest):
+    def test_id(self):
+        self.assertEqual(
+            self.article.data["doaj_id"],
+            self.doaj_document.id,
+        )
+
     def test_crud_article_url(self):
         self.assertEqual(
             config.get("DOAJ_API_URL") + "articles/" + self.article.data["doaj_id"],
             self.doaj_document.crud_article_url,
         )
 
-    def test_delete_request(self):
-        expected = { "params": { "api_key": config.get("DOAJ_API_KEY") } }
+    def test_params_request(self):
         self.assertEqual(
-            expected, self.doaj_document.delete_request
+            self.doaj_document.params_request,
+            {"api_key": config.get("DOAJ_API_KEY")},
         )
 
 
@@ -245,7 +275,7 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         del self.article.data["article"]["v83"]    # v83: abstract
         self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
         req = self.http_request_function()
-        self.assertIsNone(req["json"]["bibjson"].get("abstract"))
+        self.assertIsNone(req["bibjson"].get("abstract"))
 
     def test_http_request_raises_exception_if_no_author(self):
         del self.article.data["article"]["v10"]    # v10: authors
@@ -299,7 +329,7 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         req = self.http_request_function()
         self.assertIn(
             {"id": "eissn-returned", "type": "eissn"},
-            req["json"]["bibjson"]["identifier"],
+            req["bibjson"]["identifier"],
         )
 
     def test_http_request_raises_exception_if_no_journal_required_fields(self):
@@ -318,7 +348,7 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         del self.article.data["article"]["v85"]    # v85: keywords
         self.doaj_document = doaj.DOAJExporterXyloseArticle(article=self.article)
         req = self.http_request_function()
-        self.assertIsNone(req["json"]["bibjson"].get("keywords"))
+        self.assertIsNone(req["bibjson"].get("keywords"))
 
     def test_http_request_raises_exception_if_no_doi_nor_fulltexts(self):
         del self.article.data["doi"]
@@ -348,7 +378,7 @@ class DOAJExporterXyloseArticleExceptionsTestMixin:
         req = self.http_request_function()
         self.assertEqual(
             self.article.issue.sections.get(section_code, {}).get(original_lang),
-            req["json"]["bibjson"]["title"],
+            req["bibjson"]["title"],
         )
 
     def test_error_response_return_empty_str_if_no_error(self):

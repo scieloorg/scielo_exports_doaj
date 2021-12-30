@@ -10,13 +10,19 @@ import articlemeta.client as articlemeta_client
 import requests
 from xylose import scielodocument
 
-from exporter import AMClient, process_extracted_documents, doaj
+from exporter import (
+    AMClient,
+    process_extracted_documents,
+    process_documents_in_bulk,
+    doaj,
+)
 from exporter.main import (
     ArticleMetaDocumentNotFound,
     InvalidExporterInitData,
     IndexExporterHTTPError,
     OriginDataFilterError,
     XyloseArticleExporterAdapter,
+    XyloseArticlesListExporterAdapter,
     process_document,
     articlemeta_parser,
     main_exporter,
@@ -131,6 +137,7 @@ class XyloseArticleExporterAdapterTestMixin:
             )
         self.assertEqual(str(exc.exception), "Comando informado inválido: abc")
 
+
 class ExportXyloseArticleExporterAdapterTest(
     XyloseArticleExporterAdapterTestMixin, TestCase,
 ):
@@ -151,26 +158,23 @@ class ExportXyloseArticleExporterAdapterTest(
             "exporter.doaj.DOAJExporterXyloseArticle.post_request",
             new_callable=mock.PropertyMock,
         ) as mk_post_request:
-            mk_post_request.return_value = {
-                "params": {"api_key": "doaj-api-key-1234"},
-                "json": {"field": "value"},
-            }
+            mk_post_request.return_value = {"field": "value"}
             article_exporter = XyloseArticleExporterAdapter(
                 index=self.index, command=self.index_command, article=self.article,
             )
             article_exporter.command_function()
             mk_requests.post.assert_called_once_with(
                 url=article_exporter.index_exporter.crud_article_put_url,
-                **{
-                    "params": {"api_key": "doaj-api-key-1234"},
-                    "json": {"field": "value"},
-                },
+                params=article_exporter.index_exporter.params_request,
+                json={"field": "value"},
             )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
-        mock_resp = mock.Mock()
+    def test_export_raises_exception_with_json_error_if_post_raises_400_http_error(
+        self, mk_requests
+    ):
+        mock_resp = mock.Mock(status_code=400)
         mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "HTTP Error"
         )
@@ -187,6 +191,24 @@ class ExportXyloseArticleExporterAdapterTest(
             article_exporter.command_function()
         self.assertEqual(
             "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+
+        article_exporter: doaj.DOAJExporterXyloseArticle = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -225,14 +247,9 @@ class UpdateXyloseArticleExporterAdapterTest(
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    @mock.patch(
-        "exporter.main.doaj.DOAJExporterXyloseArticle.get_request",
-        new_callable=mock.PropertyMock,
-    )
     def test_update_calls_requests_get_to_doaj_api_with_doaj_get_request(
-        self, mk_get_request, mk_requests
+        self, mk_requests
     ):
-        mk_get_request.return_value = { "params": {"api_key": "doaj-api-key-1234"} }
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
         )
@@ -241,7 +258,7 @@ class UpdateXyloseArticleExporterAdapterTest(
         article_exporter.command_function()
         mk_requests.get.assert_called_once_with(
             url=crud_article_url,
-            **{ "params": { "api_key": "doaj-api-key-1234" } },
+            params=article_exporter.params_request,
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -295,11 +312,8 @@ class UpdateXyloseArticleExporterAdapterTest(
         mock_resp = mock.Mock()
         mk_requests.get.return_value = mk_requests.put.return_value = mock_resp
         mk_put_request.return_value = {
-            "params": {"api_key": "doaj-api-key-1234"},
-            "json": {
-                "id": "doaj-id",
-                "field": "value",
-            }
+            "id": "doaj-id",
+            "field": "value",
         }
 
         article_exporter = XyloseArticleExporterAdapter(
@@ -310,22 +324,20 @@ class UpdateXyloseArticleExporterAdapterTest(
         article_exporter.command_function()
         mk_requests.put.assert_called_once_with(
             url=crud_article_url,
-            **{
-                "params": {"api_key": "doaj-api-key-1234"},
-                "json": {
-                    "id": "doaj-id",
-                    "field": "value",
-                }
+            params=article_exporter.params_request,
+            json={
+                "id": "doaj-id",
+                "field": "value",
             },
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
     @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
-    def test_update_raises_exception_if_put_raises_http_error(
+    def test_update_raises_exception_with_json_error_if_put_raises_400_http_error(
         self, mk_put_request, mk_requests,
     ):
-        mock_put_resp = mock.Mock()
+        mock_put_resp = mock.Mock(status_code=400)
         mock_put_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "HTTP Error"
         )
@@ -342,6 +354,27 @@ class UpdateXyloseArticleExporterAdapterTest(
             article_exporter.command_function()
         self.assertEqual(
             "Erro ao atualizar o doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    @mock.patch("exporter.main.doaj.DOAJExporterXyloseArticle.put_request")
+    def test_update_raises_exception_if_put_raises_http_error(
+        self, mk_put_request, mk_requests,
+    ):
+        mock_put_resp = mock.Mock()
+        mock_put_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.put.return_value = mock_put_resp
+
+        article_exporter = XyloseArticleExporterAdapter(
+            index=self.index, command=self.index_command, article=self.article
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            article_exporter.command_function()
+        self.assertEqual(
+            "Erro ao atualizar o doaj: HTTP Error.", str(exc.exception)
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -380,14 +413,9 @@ class GetXyloseArticleExporterAdapterTest(
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    @mock.patch(
-        "exporter.main.doaj.DOAJExporterXyloseArticle.get_request",
-        new_callable=mock.PropertyMock,
-    )
     def test_get_calls_requests_get_to_doaj_api_with_doaj_get_request(
-        self, mk_get_request, mk_requests
+        self, mk_requests
     ):
-        mk_get_request.return_value = { "params": {"api_key": "doaj-api-key-1234"} }
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
         )
@@ -396,7 +424,7 @@ class GetXyloseArticleExporterAdapterTest(
         article_exporter.command_function()
         mk_requests.get.assert_called_once_with(
             url=crud_article_url,
-            **{ "params": { "api_key": "doaj-api-key-1234" } },
+            params=article_exporter.params_request,
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -453,14 +481,9 @@ class DeleteXyloseArticleExporterAdapterTest(
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
     @mock.patch("exporter.main.requests")
-    @mock.patch(
-        "exporter.main.doaj.DOAJExporterXyloseArticle.delete_request",
-        new_callable=mock.PropertyMock,
-    )
     def test_delete_calls_requests_delete_to_doaj_api_with_doaj_delete_request(
-        self, mk_delete_request, mk_requests
+        self, mk_requests
     ):
-        mk_delete_request.return_value = { "params": {"api_key": "doaj-api-key-1234"} }
         article_exporter = XyloseArticleExporterAdapter(
             index=self.index, command=self.index_command, article=self.article
         )
@@ -469,7 +492,7 @@ class DeleteXyloseArticleExporterAdapterTest(
         article_exporter.command_function()
         mk_requests.delete.assert_called_once_with(
             url=crud_article_url,
-            **{ "params": { "api_key": "doaj-api-key-1234" } },
+            params=article_exporter.params_request,
         )
 
     @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
@@ -508,6 +531,133 @@ class DeleteXyloseArticleExporterAdapterTest(
                 "pid": self.article.data["code"],
                 "status": "DELETED",
             }
+        )
+
+
+class XyloseArticlesListExporterAdapterTestMixin:
+    def test_raises_exception_if_invalid_index(self):
+        with self.assertRaises(InvalidExporterInitData) as exc:
+            articles_exporter = XyloseArticlesListExporterAdapter(
+                index="abc", command=self.index_command, articles=set(self.articles)
+            )
+        self.assertEqual(str(exc.exception), "Index informado inválido: abc")
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    def test_raises_exception_if_invalid_command(self):
+        for command in ["put", "get"]:
+            with self.subTest(command=command):
+                with self.assertRaises(InvalidExporterInitData) as exc:
+                    articles_exporter = XyloseArticlesListExporterAdapter(
+                        index=self.index, command=command, articles=set(self.articles)
+                    )
+                self.assertEqual(
+                    str(exc.exception), f"Comando informado inválido: {command}"
+                )
+
+
+class PostXyloseArticlesListExporterAdapterTest(
+    XyloseArticlesListExporterAdapterTestMixin, TestCase,
+):
+    index = "doaj"
+    index_command = "export"
+
+    def setUp(self):
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.doaj_ids = [f"doaj-id-{num}" for num in range(1, 4)]
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_calls_requests_post_to_doaj_api_with_doaj_post_request(
+        self, mk_requests
+    ):
+        with mock.patch(
+            "exporter.doaj.DOAJExporterXyloseArticle.post_request",
+            new_callable=mock.PropertyMock,
+        ) as mk_post_request:
+            mk_post_request.side_effect = [{"id": doaj_id} for doaj_id in self.doaj_ids]
+            articles_exporter = XyloseArticlesListExporterAdapter(
+                index=self.index, command=self.index_command, articles=set(self.articles),
+            )
+            articles_exporter.command_function()
+            mk_requests.post.assert_called_once_with(
+                url=articles_exporter.bulk_articles_url,
+                params=articles_exporter.params_request,
+                json=[{"id": doaj_id} for doaj_id in self.doaj_ids],
+            )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_with_json_error_if_post_raises_400_http_error(
+        self, mk_requests
+    ):
+        mock_resp = mock.Mock(status_code=400)
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+        mk_requests.post.return_value.json.return_value = {
+            "id": "doaj-id",
+            "error": "wrong field.",
+        }
+
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            articles_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error. wrong field.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_raises_exception_if_post_raises_http_error(self, mk_requests):
+        mock_resp = mock.Mock()
+        mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
+        )
+        mk_requests.post.return_value = mock_resp
+
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=set(self.articles)
+        )
+        with self.assertRaises(IndexExporterHTTPError) as exc:
+            articles_exporter.command_function()
+        self.assertEqual(
+            "Erro na exportação ao doaj: HTTP Error.", str(exc.exception)
+        )
+
+    @mock.patch.dict("os.environ", {"DOAJ_API_KEY": "doaj-api-key-1234"})
+    @mock.patch("exporter.main.requests")
+    def test_export_returns_exporter_post_response(self, mk_requests):
+        mk_requests.post.return_value.json.return_value = [
+            {
+                "id": doaj_id,
+                "location": "br",
+                "status": "OK",
+            }
+            for doaj_id in self.doaj_ids
+        ]
+        articles = set(self.articles)
+        articles_exporter = XyloseArticlesListExporterAdapter(
+            index=self.index, command=self.index_command, articles=articles
+        )
+        ret = articles_exporter.command_function()
+        self.assertEqual(
+            ret,
+            [
+                {
+                    "pid": article.data["code"],
+                    "index_id": doaj_id,
+                    "status": "OK",
+                }
+                for doaj_id, article in zip(self.doaj_ids, articles)
+            ]
         )
 
 
@@ -839,6 +989,160 @@ class DeleteExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
                     self.assertIn(pid, file_content)
 
 
+@mock.patch("exporter.main.PoisonPill")
+@mock.patch("exporter.main.execute_get_document")
+@mock.patch("exporter.main.XyloseArticlesListExporterAdapter")
+class ProcessDocumentsInBulkTestMixin:
+    def test_get_document_called_for_each_document(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        for pid in self.pids:
+            mk_execute_get_document.assert_any_call(
+                get_document=self.mk_get_document,
+                collection="scl",
+                pid=pid,
+                poison_pill=MockPoisonPill(),
+            )
+
+    def test_logs_error_if_execute_get_document_raises_exception(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [
+            self.articles[0],
+            exc,
+            self.articles[2],
+        ]
+        with mock.patch("exporter.main.logger.error") as mk_logger_error:
+            process_documents_in_bulk(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=self.output_path,
+                pids_by_collection={"scl": self.pids},
+            )
+            mk_logger_error.assert_called_once_with(
+                "Não foi possível processar documento '%s': '%s'.",
+                "S0100-19651998000200002",
+                exc
+            )
+
+    def test_XyloseArticlesListExporterAdapter_created(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [
+            self.articles[0],
+            exc,
+            self.articles[2],
+        ]
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        MockXyloseArticlesListExporterAdapter.assert_called_once_with(
+            self.index, self.index_command, {self.articles[0], self.articles[2]}
+        )
+
+    def test_XyloseArticlesListExporterAdapter_not_created_if_no_documents(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        exc = ArticleMetaDocumentNotFound()
+        mk_execute_get_document.side_effect = [exc, exc, exc]
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        MockXyloseArticlesListExporterAdapter.assert_not_called()
+
+    def test_XyloseArticlesListExporterAdapter_command_function_called(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        mk_command_function = mock.Mock(return_value=[{}])
+        MockXyloseArticlesListExporterAdapter.return_value.command_function = \
+            mk_command_function
+        mk_execute_get_document.side_effect = self.articles
+        process_documents_in_bulk(
+            get_document=self.mk_get_document,
+            index=self.index,
+            index_command=self.index_command,
+            output_path=self.output_path,
+            pids_by_collection={"scl": self.pids},
+        )
+        mk_command_function.assert_called_once_with()
+
+    def test_writes_command_function_result(
+        self,
+        MockXyloseArticlesListExporterAdapter,
+        mk_execute_get_document,
+        MockPoisonPill,
+    ):
+        fake_export_response = [{ "pid": pid, "status": "OK" } for pid in self.pids]
+        mk_command_function = mock.Mock(return_value=fake_export_response)
+        MockXyloseArticlesListExporterAdapter.return_value.command_function = \
+            mk_command_function
+        mk_execute_get_document.side_effect = self.articles
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            output_path = pathlib.Path(tmpdirname) / self.output_path
+            process_documents_in_bulk(
+                get_document=self.mk_get_document,
+                index=self.index,
+                index_command=self.index_command,
+                output_path=output_path,
+                pids_by_collection={"scl": self.pids},
+            )
+            with output_path.open(encoding="utf-8") as fp:
+                self.assertEqual(
+                    [json.loads(line) for line in fp],
+                    fake_export_response,
+                )
+
+
+class ExportDocumentsInBulkTest(ProcessDocumentsInBulkTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+    pids = [f"S0100-1965199800020000{num}" for num in range(1, 4)]
+
+    @vcr.use_cassette("tests/fixtures/vcr_cassettes/S0100-19651998000200002.yml")
+    def setUp(self):
+        self.mk_get_document = mock.MagicMock()
+        with open("tests/fixtures/full-articles.json") as fp:
+            articles_json = json.load(fp)
+        self.articles = [
+            scielodocument.Article(article_json)
+            for article_json in articles_json
+        ]
+
+
 class ArticleMetaParserTest(TestCase):
     def test_from_date(self):
         sargs = [
@@ -979,10 +1283,7 @@ class ArticleMetaParserTest(TestCase):
 
 
 class MainExporterTestMixin:
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_index_command(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_index_command(self):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
                 [
@@ -991,10 +1292,7 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_doaj_command(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_doaj_command(self):
         with self.assertRaises(SystemExit) as exc:
             main_exporter(
                 [
@@ -1004,10 +1302,7 @@ class MainExporterTestMixin:
                 ]
             )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_no_dates_nor_pids(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_no_dates_nor_pids(self):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
                 [
@@ -1022,10 +1317,7 @@ class MainExporterTestMixin:
             "Informe ao menos uma das datas (from-date ou until-date), pid ou pids",
         )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_pid_and_no_collection(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_pid_and_no_collection(self):
         with self.assertRaises(OriginDataFilterError) as exc:
             main_exporter(
                 [
@@ -1035,17 +1327,14 @@ class MainExporterTestMixin:
                     self.index_command,
                     "--pid",
                     "S0100-19651998000200002",
-                ]
+                ] + self.extra_args
             )
         self.assertEqual(
             str(exc.exception),
             "Coleção é obrigatória para exportação de um PID",
         )
 
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_raises_exception_if_pids_and_no_collection(
-        self, mk_process_extracted_documents
-    ):
+    def test_raises_exception_if_pids_and_no_collection(self):
         pids = [
             "S0100-19651998000200001",
             "S0100-19651998000200002",
@@ -1063,7 +1352,7 @@ class MainExporterTestMixin:
                         self.index_command,
                         "--pids",
                         str(pids_file),
-                    ]
+                    ] + self.extra_args
                 )
             self.assertEqual(
                 str(exc.exception),
@@ -1071,8 +1360,7 @@ class MainExporterTestMixin:
             )
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_instanciates_AMClient(self, mk_process_extracted_documents, MockAMClient):
+    def test_instanciates_AMClient(self, MockAMClient):
         main_exporter(
             [
                 "--output",
@@ -1085,15 +1373,12 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
         MockAMClient.assert_called_with(connection="thrift")
 
     @mock.patch("exporter.main.AMClient")
-    @mock.patch("exporter.main.process_extracted_documents")
-    def test_instanciates_AMClient_with_another_domain(
-        self, mk_process_extracted_documents, MockAMClient
-    ):
+    def test_instanciates_AMClient_with_another_domain(self, MockAMClient):
         main_exporter(
             [
                 "--output",
@@ -1106,14 +1391,13 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
         MockAMClient.assert_called_with(domain="http://anotheram.scielo.org")
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_collection_and_pid(
-        self, mk_process_extracted_documents, mk_document
+        self, mk_document
     ):
         main_exporter(
             [
@@ -1125,9 +1409,9 @@ class MainExporterTestMixin:
                 "spa",
                 "--pid",
                 "S0100-19651998000200002",
-            ]
+            ] + self.extra_args
         )
-        mk_process_extracted_documents.assert_called_with(
+        self.mk_process_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1136,9 +1420,8 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_collection_and_pids_from_file(
-        self, mk_process_extracted_documents, mk_document
+        self, mk_document
     ):
         pids = [
             "S0100-19651998000200001",
@@ -1158,9 +1441,9 @@ class MainExporterTestMixin:
                     "spa",
                     "--pids",
                     str(pids_file),
-                ]
+                ] + self.extra_args
             )
-        mk_process_extracted_documents.assert_called_with(
+        self.mk_process_documents.assert_called_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1170,10 +1453,8 @@ class MainExporterTestMixin:
 
     @mock.patch("exporter.main.utils.get_valid_datetime")
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_get_valid_datetime_with_dates(
         self,
-        mk_process_extracted_documents,
         mk_documents_identifiers,
         mk_get_valid_datetime,
     ):
@@ -1191,7 +1472,7 @@ class MainExporterTestMixin:
                     self.index,
                     self.index_command,
                 ] +
-                args
+                args + self.extra_args
             )
 
         mk_get_valid_datetime.assert_has_calls(
@@ -1204,9 +1485,8 @@ class MainExporterTestMixin:
         )
 
     @mock.patch.object(AMClient, "documents_identifiers")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_calls_am_client_documents_identifiers_with_args(
-        self, mk_process_extracted_documents, mk_documents_identifiers
+        self, mk_documents_identifiers
     ):
         tests_args_and_calls = [
             (["--from-date", "01-01-2021",], {"from_date": datetime(2021, 1, 1, 0, 0)}),
@@ -1237,15 +1517,14 @@ class MainExporterTestMixin:
                         self.index,
                         self.index_command,
                     ] +
-                    args
+                    args + self.extra_args
                 )
                 mk_documents_identifiers.assert_called_with(**call_params)
 
     @mock.patch.object(AMClient, "documents_identifiers")
     @mock.patch.object(AMClient, "document")
-    @mock.patch("exporter.main.process_extracted_documents")
     def test_process_extracted_documents_called_with_identifiers_from_date_search(
-        self, mk_process_extracted_documents, mk_document, mk_documents_identifiers
+        self, mk_document, mk_documents_identifiers
     ):
         mk_documents_identifiers.return_value = [
             {
@@ -1277,9 +1556,9 @@ class MainExporterTestMixin:
                 "01-01-2021",
                 "--until-date",
                 "07-01-2021",
-            ],
+            ] + self.extra_args
         )
-        mk_process_extracted_documents.assert_called_once_with(
+        self.mk_process_documents.assert_called_once_with(
             get_document=mk_document,
             index=self.index,
             index_command=self.index_command,
@@ -1296,26 +1575,68 @@ class DOAJExportMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "export"
     output_path = pathlib.Path("output.log")
+    extra_args = []
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
+
+
+class DOAJExportinBulkMainExporterTest(MainExporterTestMixin, TestCase):
+    index = "doaj"
+    index_command = "export"
+    output_path = pathlib.Path("output.log")
+    extra_args = ["--bulk"]
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_documents_in_bulk")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
 
 
 class DOAJUpdateMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "update"
     output_path = pathlib.Path("output.log")
+    extra_args = []
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()
 
 
 class DOAJGetMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "get"
+    extra_args = []
 
     def setUp(self):
         self.output_path = pathlib.Path(tempfile.mkdtemp())
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
 
     def tearDown(self):
         shutil.rmtree(self.output_path)
+        self.mk_process_documents.stop()
 
 
 class DOAJDeleteMainExporterTest(MainExporterTestMixin, TestCase):
     index = "doaj"
     index_command = "delete"
     output_path = pathlib.Path("output.log")
+    extra_args = []
+
+    def setUp(self):
+        self.patcher = mock.patch("exporter.main.process_extracted_documents")
+        self.mk_process_documents = self.patcher.start()
+
+    def tearDown(self):
+        self.mk_process_documents.stop()

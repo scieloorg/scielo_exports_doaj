@@ -68,7 +68,33 @@ class AMClient:
         return self._client.documents_by_identifiers(only_identifiers=True, **filter)
 
 
-class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
+class ExporterAdapterMixin:
+
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(),
+        stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
+        retry=tenacity.retry_if_exception_type(
+            (requests.ConnectionError, requests.Timeout),
+        ),
+    )
+    def _send_http_request(
+        self, request_method: callable, url: str, params: json = None, json: json = None
+    ):
+        logger.debug("Enviando requisição HTTP %s", url)
+        kwargs = {}
+        if params:
+            kwargs["params"] = params
+        if json:
+            kwargs["json"] = json
+        return request_method(url=url, **kwargs)
+
+    def command_function(self):
+        return self._command_function()
+
+
+class XyloseArticleExporterAdapter(
+    ExporterAdapterMixin, interfaces.IndexExporterInterface
+):
     index_exporter: interfaces.IndexExporterInterface
 
     def __init__(self, index: str, command: str, article: scielodocument.Article):
@@ -92,16 +118,12 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
         self._pid = article.data.get("code", "")
 
     @property
+    def params_request(self) -> dict:
+        return self.index_exporter.params_request
+
+    @property
     def post_request(self) -> dict:
         return self.index_exporter.post_request
-
-    @property
-    def get_request(self) -> dict:
-        return self.index_exporter.get_request
-
-    @property
-    def delete_request(self) -> dict:
-        return self.index_exporter.delete_request
 
     def put_request(self, data: dict) -> dict:
         return self.index_exporter.put_request(data)
@@ -112,26 +134,20 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
     def error_response(self, response: dict) -> dict:
         return self.index_exporter.error_response(response)
 
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(),
-        stop=tenacity.stop_after_attempt(config.get("EXPORT_RUN_RETRIES")),
-        retry=tenacity.retry_if_exception_type(
-            (requests.ConnectionError, requests.Timeout),
-        ),
-    )
-    def _send_http_request(self, request_method: callable, url: str, **request: json):
-        logger.debug("Enviando requisição HTTP %s", url)
-        return request_method(url=url, **request)
-
     def _export(self):
         resp = self._send_http_request(
-            requests.post, self.index_exporter.crud_article_put_url, **self.post_request
+            requests.post,
+            self.index_exporter.crud_article_put_url,
+            self.params_request,
+            self.post_request,
         )
         try:
             resp.raise_for_status()
         except HTTPError as exc:
-            error_response = self.error_response(resp.json())
-            exc_msg = f"Erro na exportação ao {self.index}: {exc}. {error_response}"
+            error_response = ""
+            if resp.status_code == 400:
+                error_response = " " + self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}.{error_response}"
             raise IndexExporterHTTPError(exc_msg)
         else:
             export_result = self.post_response(resp.json())
@@ -141,7 +157,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _update(self):
         get_resp = self._send_http_request(
-            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+            requests.get,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             get_resp.raise_for_status()
@@ -154,13 +172,16 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             put_resp = self._send_http_request(
                 requests.put,
                 self.index_exporter.crud_article_url,
-                **put_req,
+                self.params_request,
+                put_req,
             )
             try:
                 put_resp.raise_for_status()
             except HTTPError as exc:
-                error_response = self.error_response(put_resp.json())
-                exc_msg = f"Erro ao atualizar o {self.index}: {exc}. {error_response}"
+                error_response = ""
+                if put_resp.status_code == 400:
+                    error_response = " " + self.error_response(put_resp.json())
+                exc_msg = f"Erro ao atualizar o {self.index}: {exc}.{error_response}"
                 raise IndexExporterHTTPError(exc_msg)
             else:
                 update_result = { "pid": self._pid, "status": "UPDATED" }
@@ -169,7 +190,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _get(self):
         get_resp = self._send_http_request(
-            requests.get, self.index_exporter.crud_article_url, **self.get_request,
+            requests.get,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             get_resp.raise_for_status()
@@ -184,7 +207,9 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
 
     def _delete(self):
         delete_resp = self._send_http_request(
-            requests.delete, self.index_exporter.crud_article_url, **self.delete_request,
+            requests.delete,
+            self.index_exporter.crud_article_url,
+            self.params_request,
         )
         try:
             delete_resp.raise_for_status()
@@ -197,8 +222,79 @@ class XyloseArticleExporterAdapter(interfaces.IndexExporterInterface):
             logger.debug("Resultado da deleção: %s", delete_result)
             return delete_result
 
-    def command_function(self):
-        return self._command_function()
+
+class XyloseArticlesListExporterAdapter(
+    ExporterAdapterMixin, interfaces.IndexExporterInterface
+):
+    index_exporters: typing.List[interfaces.IndexExporterInterface]
+
+    def __init__(
+        self, index: str, command: str, articles: typing.Set[scielodocument.Article]
+    ):
+        if index == "doaj":
+            self.index_exporters = [
+                {
+                    "pid": article.data["code"],
+                    "index_exporter": doaj.DOAJExporterXyloseArticle(article)
+                }
+                for article in articles
+            ]
+            self.bulk_articles_url = self.index_exporters[0]["index_exporter"].\
+                bulk_articles_url
+        else:
+            raise InvalidExporterInitData(f"Index informado inválido: {index}")
+
+        if command == "export":
+            self._command_function = self._export
+        else:
+            raise InvalidExporterInitData(f"Comando informado inválido: {command}")
+
+        self.index = index
+
+    @property
+    def params_request(self) -> dict:
+        return self.index_exporters[0]["index_exporter"].params_request
+
+    @property
+    def post_request(self) -> dict:
+        return [
+            item["index_exporter"].post_request
+            for item in self.index_exporters
+        ]
+
+    def put_request(self, data: dict) -> dict:
+        pass
+
+    def post_response(self, response: dict) -> dict:
+        resp = []
+        for item, resp_article in zip(self.index_exporters, response):
+            new_resp_article = item["index_exporter"].post_response(resp_article)
+            new_resp_article["pid"] = item["pid"]
+            resp.append(new_resp_article)
+        return resp
+
+    def error_response(self, response: dict) -> dict:
+        return self.index_exporters[0]["index_exporter"].error_response(response)
+
+    def _export(self) -> dict:
+        resp = self._send_http_request(
+            requests.post,
+            self.bulk_articles_url,
+            self.params_request,
+            self.post_request,
+        )
+        try:
+            resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = ""
+            if resp.status_code == 400:
+                error_response = " " + self.error_response(resp.json())
+            exc_msg = f"Erro na exportação ao {self.index}: {exc}.{error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            export_result = self.post_response(resp.json())
+            logger.debug("Resultado do export: %s", export_result)
+            return export_result
 
 
 class PoisonPill:
@@ -267,6 +363,14 @@ def process_document(
     return article_adapter.command_function()
 
 
+def log_exception(exception, job, logger=logger):
+    logger.error(
+        "Não foi possível processar documento '%s': '%s'.",
+        job["pid"],
+        exception,
+    )
+
+
 def process_extracted_documents(
     get_document:callable,
     index:str,
@@ -303,13 +407,6 @@ def process_extracted_documents(
                 with path.open("a", encoding="utf-8") as fp:
                     fp.write(json.dumps(result) + "\n")
 
-        def log_exception(exception, job, logger=logger):
-            logger.error(
-                "Não foi possível processar documento '%s': '%s'.",
-                job["pid"],
-                exception,
-            )
-
         executor = JobExecutor(
             process_document,
             max_workers=4,
@@ -318,6 +415,68 @@ def process_extracted_documents(
             update_bar=update_bar,
         )
         executor.run(jobs)
+    return
+
+
+def execute_get_document(
+    get_document: callable,
+    collection: str,
+    pid: str,
+    poison_pill: PoisonPill = PoisonPill(),
+):
+    if poison_pill.poisoned:
+        return
+
+    logger.debug('Executando get_document para PID "%s"', pid)
+    document = get_document(collection=collection, pid=pid)
+    if not document or not document.data:
+        raise ArticleMetaDocumentNotFound()
+
+    return document
+
+
+def process_documents_in_bulk(
+    get_document:callable,
+    index:str,
+    index_command:str,
+    output_path:pathlib.Path,
+    pids_by_collection:typing.Dict[str, list],
+) -> None:
+    jobs = [
+        { "get_document": get_document, "collection": collection, "pid": pid }
+        for collection, pids in pids_by_collection.items()
+        for pid in pids
+    ]
+
+    documents = set()
+    with tqdm(total=len(jobs)) as pbar:
+
+        def update_bar(pbar=pbar):
+            pbar.update(1)
+
+        def write_result(result, job, path:pathlib.Path=output_path):
+            documents.add(result)
+
+        executor = JobExecutor(
+            execute_get_document,
+            max_workers=4,
+            success_callback=write_result,
+            exception_callback=log_exception,
+            update_bar=update_bar,
+        )
+        executor.run(jobs)
+
+    if documents:
+        articles_adapter = XyloseArticlesListExporterAdapter(
+            index, index_command, documents
+        )
+        ret = articles_adapter.command_function()
+
+        logger.debug('Gravando resultado em arquivo %s', output_path)
+        with output_path.open("w", encoding="utf-8") as fp:
+            for line in ret:
+                fp.write(json.dumps(line) + "\n")
+
     return
 
 
@@ -397,23 +556,24 @@ def main_exporter(sargs):
     subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
 
     doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
-    doaj_export_subparsers = doaj_parser.add_subparsers(
+    doaj_subparsers = doaj_parser.add_subparsers(
         title="DOAJ Command", dest="doaj_command", required=True,
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_export_parser = doaj_subparsers.add_parser(
         "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
+    doaj_export_parser.add_argument("--bulk", action="store_true", help="Exporta documentos em lote")
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_export_subparsers.add_parser(
+    doaj_subparsers.add_parser(
         "delete", help="Deleta documentos", parents=[articlemeta_parser(sargs)],
     )
 
@@ -476,4 +636,7 @@ def main_exporter(sargs):
             params["pids_by_collection"].setdefault(doc["collection"], [])
             params["pids_by_collection"][doc["collection"]].append(doc["code"])
 
-    process_extracted_documents(**params)
+    if getattr(args, "bulk", None):
+        process_documents_in_bulk(**params)
+    else:
+        process_extracted_documents(**params)
