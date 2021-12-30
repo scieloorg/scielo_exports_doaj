@@ -246,6 +246,8 @@ class XyloseArticlesListExporterAdapter(
 
         if command == "export":
             self._command_function = self._export
+        elif command == "delete":
+            self._command_function = self._delete
         else:
             raise InvalidExporterInitData(f"Comando informado inválido: {command}")
 
@@ -259,6 +261,13 @@ class XyloseArticlesListExporterAdapter(
     def post_request(self) -> dict:
         return [
             item["index_exporter"].post_request
+            for item in self.index_exporters
+        ]
+
+    @property
+    def delete_request(self) -> dict:
+        return [
+            item["index_exporter"].id
             for item in self.index_exporters
         ]
 
@@ -295,6 +304,27 @@ class XyloseArticlesListExporterAdapter(
             export_result = self.post_response(resp.json())
             logger.debug("Resultado do export: %s", export_result)
             return export_result
+
+    def _delete(self):
+        resp = self._send_http_request(
+            requests.delete,
+            self.bulk_articles_url,
+            self.params_request,
+            self.delete_request,
+        )
+        try:
+            resp.raise_for_status()
+        except HTTPError as exc:
+            error_response = self.error_response(resp.json())
+            exc_msg = f"Erro ao deletar no {self.index}: {exc}. {error_response}"
+            raise IndexExporterHTTPError(exc_msg)
+        else:
+            delete_result = [
+                { "pid": item["pid"], "status": "DELETED" }
+                for item in self.index_exporters
+            ]
+            logger.debug("Resultado da deleção: %s", delete_result)
+            return delete_result
 
 
 class PoisonPill:
@@ -563,7 +593,9 @@ def main_exporter(sargs):
     doaj_export_parser = doaj_subparsers.add_parser(
         "export", help="Exporta documentos", parents=[articlemeta_parser(sargs)],
     )
-    doaj_export_parser.add_argument("--bulk", action="store_true", help="Exporta documentos em lote")
+    doaj_export_parser.add_argument(
+        "--bulk", action="store_true", help="Exporta documentos em lote"
+    )
 
     doaj_subparsers.add_parser(
         "update", help="Atualiza documentos", parents=[articlemeta_parser(sargs)],
@@ -573,8 +605,11 @@ def main_exporter(sargs):
         "get", help="Obtém documentos", parents=[articlemeta_parser(sargs)],
     )
 
-    doaj_subparsers.add_parser(
+    doaj_delete_parser = doaj_subparsers.add_parser(
         "delete", help="Deleta documentos", parents=[articlemeta_parser(sargs)],
+    )
+    doaj_delete_parser.add_argument(
+        "--bulk", action="store_true", help="Deleta documentos em lote"
     )
 
     args = parser.parse_args(sargs)
