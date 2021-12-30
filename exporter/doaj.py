@@ -1,9 +1,15 @@
 import typing
+import re
+from datetime import datetime
 
 import requests
 from xylose import scielodocument
 
 from exporter import interfaces, config, utils
+
+
+ORCID_URL = "https://orcid.org"
+ORCID_REGEX_VALIDATION = r"^https://orcid\.org/[0-9]{4}-[0-9]{4}-[0-9]{4}-\d{3}[\dX]$"
 
 
 class DOAJExporterXyloseArticleNoRequestData(Exception):
@@ -81,6 +87,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
+        self._set_bibjson_month_and_year()
+        self._set_es_type()
         return self._data
 
     def put_request(self, data: dict) -> dict:
@@ -94,6 +102,8 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         self._set_bibjson_keywords()
         self._set_bibjson_link()
         self._set_bibjson_title()
+        self._set_bibjson_month_and_year()
+        self._set_es_type()
         return self._data
 
     def post_response(self, response: dict) -> dict:
@@ -114,12 +124,30 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
         if not self._article.authors:
             raise DOAJExporterXyloseArticleNoAuthorsException()
 
+        affiliation_institutions = {
+            mixed_affiliation["index"]: mixed_affiliation["institution"]
+            for mixed_affiliation in self._article.mixed_affiliations
+        }
         self._data["bibjson"].setdefault("author", [])
         for author in self._article.authors:
-            author_name = " ".join(
-                [author.get('given_names', ''), author.get('surname', '')]
-            )
-            self._data["bibjson"]["author"].append({"name": author_name})
+            author_data = {
+                "name": " ".join(
+                    [author.get("given_names", ""), author.get("surname", "")]
+                )
+            }
+            affiliation_index = author.get("xref", [""])[0]
+            if affiliation_index:
+                author_data["affiliation"] = affiliation_institutions.get(
+                    affiliation_index, ""
+                )
+            if author.get("orcid"):
+                valid_orcid = re.fullmatch(
+                    ORCID_REGEX_VALIDATION, f'{ORCID_URL}/{author["orcid"]}'
+                )
+                if valid_orcid:
+                    author_data["orcid_id"] = valid_orcid.string
+
+            self._data["bibjson"]["author"].append(author_data)
 
     def _get_registered_journal_issn(self):
         for journal_attr in ["electronic_issn", "print_issn"]:
@@ -151,14 +179,34 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
                 {"id": self._article.doi, "type": "doi"}
             )
 
+    def _get_issue_number(self):
+        issue = self._article.issue
+        label_issue = issue.number.replace("ahead", "") if issue.number else ""
+
+        if issue.supplement_number:
+            label_issue += f" suppl {issue.supplement_number}"
+
+        if issue.supplement_volume:
+            label_issue += f" suppl {issue.supplement_volume}"
+
+        label_issue = re.compile(r"^0 ").sub("", label_issue)
+        label_issue = re.compile(r" 0$").sub("", label_issue)
+        return label_issue.strip()
+
     def _set_bibjson_journal(self):
         journal = {}
 
-        def _set_journal_field(journal, article, field, field_to_set, required=False):
-            journal_field = getattr(self._article.journal, field)
-            if journal_field:
-                journal[field_to_set] = journal_field
-            elif not journal_field and required:
+        def _set_journal_field(
+            journal, article_object, field, field_to_set, required=False
+        ):
+            if article_object:
+                object = getattr(self._article, article_object)
+            else:
+                object = self._article
+            object_field = getattr(object, field)
+            if object_field:
+                journal[field_to_set] = object_field
+            elif not object_field and required:
                 raise DOAJExporterXyloseArticleNoJournalRequiredFields()
 
 
@@ -169,11 +217,17 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             country_code, __ = publisher_country
             journal["country"] = country_code
 
-        _set_journal_field(journal, self._article, "languages", "language", required=True)
+        _set_journal_field(journal, "journal", "languages", "language", required=True)
         _set_journal_field(
-            journal, self._article, "publisher_name", "publisher", required=True
+            journal, "journal", "publisher_name", "publisher", required=True
         )
-        _set_journal_field(journal, self._article, "title", "title", required=True)
+        _set_journal_field(journal, "journal", "title", "title", required=True)
+        _set_journal_field(journal, "issue", "volume", "volume")
+        issue_number = self._get_issue_number()
+        if issue_number:
+            journal["number"] = issue_number
+        _set_journal_field(journal, None, "start_page", "start_page")
+        _set_journal_field(journal, None, "end_page", "end_page")
 
         self._data["bibjson"]["journal"] = journal
 
@@ -218,6 +272,28 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             )
 
         self._data["bibjson"]["title"] = title
+
+    def _set_bibjson_month_and_year(self):
+        str_pub_date = self._article.document_publication_date or self._article.issue_publication_date
+        try:
+            pub_date = datetime.strptime(str_pub_date, "%Y-%m-%d")
+        except ValueError:
+            try:
+                pub_date = datetime.strptime(str_pub_date, "%Y-%m")
+            except ValueError:
+                pub_date = None
+                self._data["bibjson"]["year"] = str_pub_date
+
+        if pub_date:
+            if pub_date.month:
+                self._data["bibjson"]["month"] = pub_date.month
+
+            if pub_date.year:
+                self._data["bibjson"]["year"] = pub_date.year
+
+    def _set_es_type(self):
+        if self._article.document_type:
+            self._data["es_type"] = self._article.document_type
 
     def command_function(self):
         pass

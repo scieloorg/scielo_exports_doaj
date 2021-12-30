@@ -1,0 +1,1153 @@
+{
+    "fulltexts": {
+        "html": {
+            "en": "http://www.scielo.br/scielo.php?script=sci_arttext&pid=S0101-01012099009900014&tlng=en"
+        },
+        "pdf": {
+            "en": "http://www.scielo.br/pdf/aabc/v81n4/14.pdf"
+        }
+    },
+    "publication_year": "2009",
+    "doi": "10.1590/S0101-01012099009900014",
+    "normalized": {
+        "article": {
+            "v70": {
+                "p": [
+                    true,
+                    true,
+                    true
+                ]
+            }
+        }
+    },
+    "article": {
+        "v49": [
+            {
+                "_": "AABC050"
+            }
+        ],
+        "v31": [
+            {
+                "_": "81"
+            }
+        ],
+        "v111": [
+            {
+                "_": "December 3, 2008"
+            }
+        ],
+        "v10": [
+            {
+                "1": "A01",
+                "_": "",
+                "n": "Autora 1",
+                "r": "ND",
+                "s": "Sobrenome 1",
+                "k": "0001-0001-0001-0001"
+            },
+            {
+                "1": "A03",
+                "_": "",
+                "n": "Autor 2",
+                "r": "ND",
+                "s": "Sobrenome 2",
+                "k": "0002-0002-0002-0002"
+            }
+        ],
+        "v158": [
+            {
+                "_": "nd"
+            }
+        ],
+        "v4": [
+            {
+                "_": "v81n4"
+            }
+        ],
+        "v117": [
+            {
+                "_": "other"
+            }
+        ],
+        "v114": [
+            {
+                "_": "20090806"
+            }
+        ],
+        "v706": [
+            {
+                "_": "h"
+            }
+        ],
+        "v2": [
+            {
+                "_": "S0001-3765(09)08100414"
+            }
+        ],
+        "v40": [
+            {
+                "_": "en"
+            }
+        ],
+        "v121": [
+            {
+                "_": "14"
+            }
+        ],
+        "v71": [
+            {
+                "_": "oa"
+            }
+        ],
+        "v992": [
+            {
+                "_": "scl"
+            }
+        ],
+        "v120": [
+            {
+                "_": "3.1"
+            }
+        ],
+        "v880": [
+            {
+                "_": "S0101-01012099009900014"
+            }
+        ],
+        "v1": [
+            {
+                "_": "br1.1"
+            }
+        ],
+        "v240": [
+            {
+                "s": "Rio de Janeiro",
+                "p": "BR",
+                "i": "A01",
+                "_": "Universidade Federal do Rio de Janeiro"
+            },
+            {
+                "s": "Rio de Janeiro",
+                "p": "BR",
+                "i": "A02",
+                "_": "Universidade Federal do Rio de Janeiro"
+            }
+        ],
+        "v91": [
+            {
+                "_": "20091116"
+            }
+        ],
+        "v65": [
+            {
+                "_": "20091200"
+            }
+        ],
+        "v720": [
+            {
+                "v": "ori",
+                "_": "",
+                "f": "htm",
+                "u": "http://www.scielo.br/scielo.php?script=sci_arttext&pid=S0101-01012099009900014&lng=en&nrm=iso&tlng=en",
+                "l": "en"
+            },
+            {
+                "v": "ori",
+                "_": "",
+                "f": "pdf",
+                "u": "http://www.scielo.br/pdf/aabc/v81n4/14.pdf",
+                "l": "en"
+            }
+        ],
+        "v32": [
+            {
+                "_": "4"
+            }
+        ],
+        "v113": [
+            {
+                "_": "August 6, 2009"
+            }
+        ],
+        "v83": [
+            {
+                "a": "The depositional model of ...",
+                "_": "",
+                "l": "en"
+            },
+            {
+                "a": "O modelo deposicional da ...",
+                "_": "",
+                "l": "pt"
+            }
+        ],
+        "v72": [
+            {
+                "_": "41"
+            }
+        ],
+        "v740": [
+            {
+                "_": "en"
+            }
+        ],
+        "v85": [
+            {
+                "d": "nd",
+                "_": "",
+                "i": "1"
+            },
+            {
+                "_": "",
+                "k": "Parna\u00edba Basin",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "Devonian",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "Cabe\u00e7as Formation",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "flood-dominated fluvio-deltaic system",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "delta-front sandstone lobes",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "mouth-bar deposits",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "hummocky cross-stratification",
+                "i": "1",
+                "l": "en",
+                "t": "m"
+            },
+            {
+                "d": "nd",
+                "_": "",
+                "i": "2"
+            },
+            {
+                "_": "",
+                "k": "Bacia do Parna\u00edba",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "Devoniano",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "Forma\u00e7\u00e3o Cabe\u00e7as",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "sistema fl\u00favio-deltaico dominado por inunda\u00e7\u00f5es",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "lobos de frente deltaica",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "dep\u00f3sitos de barra de desembocadura",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            },
+            {
+                "_": "",
+                "k": "estratifica\u00e7\u00e3o cruzada hummocky",
+                "i": "2",
+                "l": "pt",
+                "t": "m"
+            }
+        ],
+        "v42": [
+            {
+                "_": "1"
+            }
+        ],
+        "v30": [
+            {
+                "_": "An. Acad. Bras. Ci\u00eanc."
+            }
+        ],
+        "v112": [
+            {
+                "_": "20081203"
+            }
+        ],
+        "v708": [
+            {
+                "_": "1"
+            }
+        ],
+        "v14": [
+            {
+                "_": "",
+                "l": "780",
+                "f": "769"
+            }
+        ],
+        "v700": [
+            {
+                "_": "2"
+            }
+        ],
+        "v709": [
+            {
+                "_": "article"
+            }
+        ],
+        "v35": [
+            {
+                "_": "0001-3765"
+            }
+        ],
+        "v38": [
+            {
+                "_": "ILUS"
+            },
+            {
+                "_": "MAP"
+            }
+        ],
+        "v999": [
+            {
+                "_": "../bases-work/aabc/aabc"
+            }
+        ],
+        "v705": [
+            {
+                "_": "S"
+            }
+        ],
+        "v60": [
+            {
+                "_": "E-26/110.284/2008"
+            }
+        ],
+        "v882": [
+            {
+                "n": "4",
+                "_": "",
+                "v": "81"
+            }
+        ],
+        "v936": [
+            {
+                "o": "4",
+                "y": "2009",
+                "i": "0001-3765",
+                "_": ""
+            }
+        ],
+        "v12": [
+            {
+                "_": "Article Title",
+                "l": "en"
+            }
+        ],
+        "v58": [
+            {
+                "_": "Funda\u00e7\u00e3o Carlos Chagas Filho de Amparo \u00e0 Pesquisa do Rio de Janeiro"
+            }
+        ],
+        "v702": [
+            {
+                "_": "v:\\scielo\\serial\\aabc\\v81n4\\markup\\14.htm"
+            }
+        ],
+        "v701": [
+            {
+                "_": "1"
+            }
+        ],
+        "v70": [
+            {
+                "2": "Departamento de Geologia",
+                "i": "A01",
+                "s": "RJ",
+                "1": "Instituto de Geoci\u00eancias",
+                "c": "Rio de Janeiro",
+                "z": "21941-916",
+                "p": "Brasil",
+                "_": "Universidade Federal do Rio de Janeiro"
+            },
+            {
+                "2": "Departamento de Geologia e Paleontologia",
+                "i": "A02",
+                "s": "RJ",
+                "1": "Museu Nacional",
+                "c": "Rio de Janeiro",
+                "z": "20940-040",
+                "p": "Brasil",
+                "_": "Universidade Federal do Rio de Janeiro"
+            },
+            {
+                "z": "20090-003",
+                "s": "RJ",
+                "c": "Rio de Janeiro",
+                "i": "A03",
+                "p": "Brasil",
+                "_": "Starfish Oil & Gas S.A."
+            }
+        ]
+    },
+    "validated_scielo": "True",
+    "doaj_id": "doaj-id-123456",
+    "code_issue": "0101-010120990099",
+    "updated_at": "2017-08-29",
+    "collection": "scl",
+    "version": "html",
+    "created_at": "2009-11-16",
+    "section": {
+        "pt": "Ci\u00eancias da Terra",
+        "en": "Earth Sciences"
+    },
+    "sent_doaj": "False",
+    "code_title": [
+        "0001-3765"
+    ],
+    "processing_date": "2009-11-16",
+    "code": "S0101-01012099009900014",
+    "document_type": "research-article",
+    "issue": {
+        "publication_date": "2009-12",
+        "publication_year": "2009",
+        "code_title": [
+            "0001-3765",
+            "1678-2690"
+        ],
+        "code": "0101-010120990099",
+        "issue": {
+            "v49": [
+                {
+                    "_": "",
+                    "c": "AABC020",
+                    "l": "pt",
+                    "t": "Ci\u00eancias F\u00edsicas"
+                },
+                {
+                    "_": "",
+                    "c": "AABC020",
+                    "l": "en",
+                    "t": "Physical Sciences"
+                },
+                {
+                    "_": "",
+                    "c": "AABC030",
+                    "l": "pt",
+                    "t": "Ci\u00eancias Biol\u00f3gicas"
+                },
+                {
+                    "_": "",
+                    "c": "AABC030",
+                    "l": "en",
+                    "t": "Biological Sciences"
+                },
+                {
+                    "_": "",
+                    "c": "AABC040",
+                    "l": "pt",
+                    "t": "Ci\u00eancias Biom\u00e9dicas e M\u00e9dicas"
+                },
+                {
+                    "_": "",
+                    "c": "AABC040",
+                    "l": "en",
+                    "t": "Biomedical and Medical Sciences"
+                },
+                {
+                    "_": "",
+                    "c": "AABC050",
+                    "l": "pt",
+                    "t": "Ci\u00eancias da Terra"
+                },
+                {
+                    "_": "",
+                    "c": "AABC050",
+                    "l": "en",
+                    "t": "Earth Sciences"
+                },
+                {
+                    "_": "",
+                    "c": "AABC090",
+                    "l": "pt",
+                    "t": "Nota Editorial"
+                },
+                {
+                    "_": "",
+                    "c": "AABC090",
+                    "l": "en",
+                    "t": "Editorial Note"
+                },
+                {
+                    "_": "",
+                    "c": "AABC120",
+                    "l": "pt",
+                    "t": "Ci\u00eancias Matem\u00e1ticas"
+                },
+                {
+                    "_": "",
+                    "c": "AABC120",
+                    "l": "en",
+                    "t": "Mathematical Sciences"
+                },
+                {
+                    "_": "",
+                    "c": "AABC220",
+                    "l": "pt",
+                    "t": "Ci\u00eancias Agr\u00e1rias"
+                },
+                {
+                    "_": "",
+                    "c": "AABC220",
+                    "l": "en",
+                    "t": "Agrarian Sciences"
+                }
+            ],
+            "v31": [
+                {
+                    "_": "81"
+                }
+            ],
+            "v991": [
+                {
+                    "_": "1"
+                }
+            ],
+            "v151": [
+                {
+                    "_": "An. Acad. Bras. Ci\u00eanc"
+                }
+            ],
+            "v122": [
+                {
+                    "_": "22"
+                }
+            ],
+            "v4": [
+                {
+                    "_": "v81n4"
+                }
+            ],
+            "v117": [
+                {
+                    "_": "other"
+                }
+            ],
+            "v85": [
+                {
+                    "_": "nd"
+                }
+            ],
+            "v706": [
+                {
+                    "_": "i"
+                }
+            ],
+            "v421": [
+                {
+                    "_": "An Acad Bras Cienc"
+                }
+            ],
+            "v930": [
+                {
+                    "_": "AABC"
+                }
+            ],
+            "v992": [
+                {
+                    "_": "scl"
+                }
+            ],
+            "v880": [
+                {
+                    "_": "0101-010120990099"
+                }
+            ],
+            "v200": [
+                {
+                    "_": "1"
+                }
+            ],
+            "v91": [
+                {
+                    "_": "20091104"
+                }
+            ],
+            "v65": [
+                {
+                    "_": "20091200"
+                }
+            ],
+            "v480": [
+                {
+                    "_": "Academia Brasileira de Ci\u00eancias"
+                }
+            ],
+            "v32": [
+                {
+                    "_": "4"
+                }
+            ],
+            "v36": [
+                {
+                    "_": "20094"
+                }
+            ],
+            "v130": [
+                {
+                    "_": "Anais da Academia Brasileira de Ci\u00eancias"
+                }
+            ],
+            "v35": [
+                {
+                    "_": "0001-3765"
+                }
+            ],
+            "v42": [
+                {
+                    "_": "1"
+                }
+            ],
+            "v30": [
+                {
+                    "_": "An. Acad. Bras. Ci\u00eanc."
+                }
+            ],
+            "v700": [
+                {
+                    "_": "0"
+                }
+            ],
+            "v48": [
+                {
+                    "_": "",
+                    "h": "Sumario",
+                    "l": "es"
+                },
+                {
+                    "_": "",
+                    "h": "Sum\u00e1rio",
+                    "l": "pt"
+                },
+                {
+                    "_": "",
+                    "h": "Table of Contents",
+                    "l": "en"
+                }
+            ],
+            "v999": [
+                {
+                    "_": "../bases-work/aabc/aabc"
+                }
+            ],
+            "v43": [
+                {
+                    "a": "2009",
+                    "c": "Rio de Janeiro",
+                    "v": "vol.81",
+                    "n": "no.4",
+                    "m": "dic.",
+                    "_": "",
+                    "l": "es",
+                    "t": "An. Acad. Bras. Ci\u00eanc."
+                },
+                {
+                    "a": "2009",
+                    "c": "Rio de Janeiro",
+                    "v": "vol.81",
+                    "n": "no.4",
+                    "m": "dez.",
+                    "_": "",
+                    "l": "pt",
+                    "t": "An. Acad. Bras. Ci\u00eanc."
+                },
+                {
+                    "a": "2009",
+                    "c": "Rio de Janeiro",
+                    "v": "vol.81",
+                    "n": "no.4",
+                    "m": "Dec.",
+                    "_": "",
+                    "l": "en",
+                    "t": "An. Acad. Bras. Ci\u00eanc."
+                }
+            ],
+            "v6": [
+                {
+                    "_": "040"
+                }
+            ],
+            "v701": [
+                {
+                    "_": "1"
+                }
+            ]
+        },
+        "issue_type": "regular",
+        "processing_date": "2009-11-04",
+        "_shard_id": "182cfb7bea9f4243be17cc82e8368e23",
+        "collection": "scl",
+        "created_at": "2009-11-04"
+    },
+    "license": "by-nc/4.0",
+    "sent_wos": "True",
+    "title": {
+        "v85": [
+            {
+                "_": "nd"
+            }
+        ],
+        "v690": [
+            {
+                "_": "www.scielo.br"
+            }
+        ],
+        "v117": [
+            {
+                "_": "other"
+            }
+        ],
+        "v150": [
+            {
+                "_": "An. Acad. Bras. Ci\u00eanc."
+            }
+        ],
+        "v930": [
+            {
+                "_": "AABC"
+            }
+        ],
+        "v10": [
+            {
+                "_": "br1.1"
+            }
+        ],
+        "v992": [
+            {
+                "_": "scl"
+            }
+        ],
+        "updated_at": "2019-08-31",
+        "v480": [
+            {
+                "_": "Academia Brasileira de Ci\u00eancias"
+            }
+        ],
+        "v140": [
+            {
+                "_": "MCT"
+            },
+            {
+                "_": "CNPq"
+            },
+            {
+                "_": "FINEP"
+            }
+        ],
+        "v67": [
+            {
+                "_": "na"
+            }
+        ],
+        "v303": [
+            {
+                "_": "1"
+            }
+        ],
+        "v35": [
+            {
+                "_": "ONLIN"
+            }
+        ],
+        "v941": [
+            {
+                "_": "20190829"
+            }
+        ],
+        "v360": [
+            {
+                "_": "es"
+            },
+            {
+                "_": "en"
+            },
+            {
+                "_": "pt"
+            }
+        ],
+        "v5": [
+            {
+                "_": "S"
+            }
+        ],
+        "v541": [
+            {
+                "_": "BY"
+            }
+        ],
+        "v62": [
+            {
+                "_": "Academia Brasileira de Ci\u00eancias"
+            }
+        ],
+        "v66": [
+            {
+                "_": "art"
+            }
+        ],
+        "v380": [
+            {
+                "_": "Q"
+            }
+        ],
+        "v100": [
+            {
+                "_": "Anais da Academia Brasileira de Ci\u00eancias"
+            }
+        ],
+        "v340": [
+            {
+                "_": "A"
+            }
+        ],
+        "v942": [
+            {
+                "_": "20000721"
+            }
+        ],
+        "created_at": "2000-07-21",
+        "v68": [
+            {
+                "_": "aabc"
+            }
+        ],
+        "v20": [
+            {
+                "_": "003418-5"
+            }
+        ],
+        "v435": [
+            {
+                "_": "0001-3765",
+                "t": "PRINT"
+            },
+            {
+                "_": "1678-2690",
+                "t": "ONLIN"
+            }
+        ],
+        "v6": [
+            {
+                "_": "c"
+            }
+        ],
+        "code": "0001-3765",
+        "v430": [
+            {
+                "_": "Q"
+            }
+        ],
+        "v310": [
+            {
+                "_": "BR"
+            }
+        ],
+        "scimago_id": "18659",
+        "v692": [
+            {
+                "_": "http://mc04.manuscriptcentral.com/aabc-scielo"
+            }
+        ],
+        "v935": [
+            {
+                "_": "1678-2690"
+            }
+        ],
+        "v490": [
+            {
+                "_": "Rio de Janeiro"
+            }
+        ],
+        "v151": [
+            {
+                "_": "An. Acad. Bras. Ci\u00eanc"
+            }
+        ],
+        "v421": [
+            {
+                "_": "An Acad Bras Cienc"
+            }
+        ],
+        "v350": [
+            {
+                "_": "es"
+            },
+            {
+                "_": "en"
+            },
+            {
+                "_": "pt"
+            }
+        ],
+        "v400": [
+            {
+                "_": "0001-3765"
+            }
+        ],
+        "v940": [
+            {
+                "_": "20000721"
+            }
+        ],
+        "v440": [
+            {
+                "_": "MEDICINA"
+            },
+            {
+                "_": "GEOCIENCIAS"
+            }
+        ],
+        "v951": [
+            {
+                "_": "OCRD"
+            }
+        ],
+        "v880": [
+            {
+                "_": "0001-3765"
+            }
+        ],
+        "v320": [
+            {
+                "_": "RJ"
+            }
+        ],
+        "v302": [
+            {
+                "_": "1"
+            }
+        ],
+        "v851": [
+            {
+                "_": "SCIE"
+            }
+        ],
+        "v63": [
+            {
+                "_": "Rua Anfil\u00f3fio de Carvalho, 29, 3\u00ba andar"
+            },
+            {
+                "_": "20030-060 Rio de Janeiro RJ Brasil"
+            },
+            {
+                "_": "Tel: +55 21 2533-6274"
+            },
+            {
+                "_": "+55 21 2532-0562"
+            }
+        ],
+        "v854": [
+            {
+                "_": "MULTIDISCIPLINARY SCIENCES"
+            }
+        ],
+        "v943": [
+            {
+                "_": "20190830"
+            }
+        ],
+        "v50": [
+            {
+                "_": "C"
+            }
+        ],
+        "v301": [
+            {
+                "_": "1929"
+            }
+        ],
+        "v330": [
+            {
+                "_": "CT"
+            }
+        ],
+        "issns": [
+            "1678-2690",
+            "0001-3765"
+        ],
+        "v441": [
+            {
+                "_": "Agricultural Sciences"
+            },
+            {
+                "_": "Biological Sciences"
+            },
+            {
+                "_": "Engineering"
+            },
+            {
+                "_": "Exact and Earth Sciences"
+            },
+            {
+                "_": "Health Sciences"
+            },
+            {
+                "_": "Human Sciences"
+            }
+        ],
+        "v37": [
+            {
+                "_": "2002"
+            }
+        ],
+        "v450": [
+            {
+                "_": "Chemical Abstracts Service"
+            },
+            {
+                "_": "IM"
+            },
+            {
+                "_": "LL"
+            },
+            {
+                "_": "Bibliography and Index of Geology"
+            },
+            {
+                "_": "Institut de l' Information Scientifique et Technique"
+            },
+            {
+                "_": "Mathematical Reviews"
+            },
+            {
+                "_": "Zentralblatt Math"
+            },
+            {
+                "_": "ISI"
+            },
+            {
+                "_": "BIOISIS"
+            },
+            {
+                "_": "Periodica"
+            },
+            {
+                "_": "Science Citation Index"
+            },
+            {
+                "_": "ISI Alerting Services"
+            },
+            {
+                "_": "Current Contents Physical, Chemical and Earth Sciences"
+            },
+            {
+                "_": "ISI Web of Science"
+            },
+            {
+                "_": "PubMed"
+            },
+            {
+                "_": "LILACS"
+            }
+        ],
+        "v950": [
+            {
+                "_": "AMMS"
+            }
+        ],
+        "collection": "scl",
+        "updated_date": "2015-09-14",
+        "v699": [
+            {
+                "_": "continuous"
+            }
+        ],
+        "v901": [
+            {
+                "_": "Publica los resultados de investigaciones originales en todas las \u00e1reas cient\u00edficas representadas en la Academia Brasileira de Ci\u00eancias.",
+                "l": "es"
+            },
+            {
+                "_": "Publicar os resultados de pesquisas originais em todas as \u00e1reas cient\u00edficas representadas na Academia Brasileira de Ci\u00eancias.",
+                "l": "pt"
+            },
+            {
+                "_": "To publish the results of original research in the broad range of scientific areas represented in the Academia Brasileira de Ci\u00eancias.",
+                "l": "en"
+            }
+        ],
+        "v51": [
+            {
+                "b": "C",
+                "a": "20000721",
+                "_": ""
+            }
+        ],
+        "v420": [
+            {
+                "_": "45A"
+            }
+        ],
+        "v65": [
+            {
+                "_": "<hr>"
+            }
+        ],
+        "v64": [
+            {
+                "_": "aabc@abc.org.br"
+            }
+        ],
+        "processing_date": "2019-08-29",
+        "v691": [
+            {
+                "_": "100000000000000000000000"
+            }
+        ]
+    },
+    "validated_wos": "True",
+    "applicable": "True"
+}
