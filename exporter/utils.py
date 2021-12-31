@@ -26,3 +26,10 @@ def is_valid_issn(issn: str):
     return False
 
 
+def extract_issns_from_file(issns: Path):
+    try:
+        with open(issns) as fin:
+            return set([i.strip() for i in fin if is_valid_issn(i.strip())])
+    except:
+        raise ISSNFileError()
+
