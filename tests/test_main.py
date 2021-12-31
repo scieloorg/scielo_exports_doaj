@@ -759,6 +759,7 @@ class ProcessDocumentTestMixin:
             index_command=self.index_command,
             collection="scl",
             pid="S0100-19651998000200002",
+            managed_issns=set(),
         )
         mk_document.assert_called_with(collection="scl", pid="S0100-19651998000200002")
 
@@ -771,6 +772,7 @@ class ProcessDocumentTestMixin:
                 index_command=self.index_command,
                 collection="scl",
                 pid="S0100-19651998000200002",
+                managed_issns=set(),
             )
         self.assertEqual(str(exc_info.exception), "No document found")
 
@@ -783,6 +785,7 @@ class ProcessDocumentTestMixin:
                 index_command=self.index_command,
                 collection="scl",
                 pid="S0100-19651998000200002",
+                managed_issns=set(),
             )
 
     @mock.patch("exporter.main.XyloseArticleExporterAdapter")
@@ -797,6 +800,7 @@ class ProcessDocumentTestMixin:
             index_command=self.index_command,
             collection="scl",
             pid="S0100-19651998000200002",
+            managed_issns=set(),
         )
         MockXyloseArticleExporterAdapter.assert_called_once_with(
             self.index, self.index_command, document,
@@ -821,6 +825,7 @@ class ProcessDocumentTestMixin:
             index_command=self.index_command,
             collection="scl",
             pid="S0100-19651998000200002",
+            managed_issns=set(),
         )
         self.assertEqual(ret, {"id": "doaj-id-1234", "status": "OK"})
 
@@ -858,6 +863,7 @@ class ProcessExtractedDocumentsTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": ["S0100-19651998000200002"]},
+            managed_issns=set(),
         )
         mk_process_document.assert_called_with(
             get_document=self.mk_get_document,
@@ -865,6 +871,7 @@ class ProcessExtractedDocumentsTestMixin:
             index_command=self.index_command,
             collection="scl",
             pid="S0100-19651998000200002",
+            managed_issns=set(),
             poison_pill=MockPoisonPill(),
         )
 
@@ -879,6 +886,7 @@ class ProcessExtractedDocumentsTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": pids},
+            managed_issns=set(),
         )
         for pid in pids:
             mk_process_document.assert_any_call(
@@ -887,6 +895,7 @@ class ProcessExtractedDocumentsTestMixin:
                 index_command=self.index_command,
                 collection="scl",
                 pid=pid,
+                managed_issns=set(),
                 poison_pill=MockPoisonPill(),
             )
 
@@ -902,6 +911,7 @@ class ProcessExtractedDocumentsTestMixin:
                 index_command=self.index_command,
                 output_path=self.output_path,
                 pids_by_collection={"scl": ["S0100-19651998000200001"]},
+                managed_issns=set(),
             )
             mk_logger_error.assert_called_once_with(
                 "Não foi possível processar documento '%s': '%s'.",
@@ -942,6 +952,7 @@ class ExportExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
                 index_command=self.index_command,
                 output_path=output_file,
                 pids_by_collection={"scl": fake_pids},
+                managed_issns=set(),
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -981,6 +992,7 @@ class UpdateExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
                 index_command=self.index_command,
                 output_path=output_file,
                 pids_by_collection={"scl": fake_pids},
+                managed_issns=set(),
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -1021,6 +1033,7 @@ class GetExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase):
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": fake_pids},
+            managed_issns=set(),
         )
         for pid in fake_pids:
             with self.subTest(pid=pid):
@@ -1069,6 +1082,7 @@ class DeleteExtractedDocumentsTest(ProcessExtractedDocumentsTestMixin, TestCase)
                 index_command=self.index_command,
                 output_path=output_file,
                 pids_by_collection={"scl": fake_pids},
+                managed_issns=set(),
             )
             file_content = output_file.read_text()
             for pid in fake_pids:
@@ -1092,12 +1106,14 @@ class ProcessDocumentsInBulkTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": self.pids},
+            managed_issns=set(),
         )
         for pid in self.pids:
             mk_execute_get_document.assert_any_call(
                 get_document=self.mk_get_document,
                 collection="scl",
                 pid=pid,
+                managed_issns=set(),
                 poison_pill=MockPoisonPill(),
             )
 
@@ -1120,6 +1136,7 @@ class ProcessDocumentsInBulkTestMixin:
                 index_command=self.index_command,
                 output_path=self.output_path,
                 pids_by_collection={"scl": self.pids},
+                managed_issns=set(),
             )
             mk_logger_error.assert_called_once_with(
                 "Não foi possível processar documento '%s': '%s'.",
@@ -1145,6 +1162,7 @@ class ProcessDocumentsInBulkTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": self.pids},
+            managed_issns=set(),
         )
         MockXyloseArticlesListExporterAdapter.assert_called_once_with(
             self.index, self.index_command, {self.articles[0], self.articles[2]}
@@ -1164,6 +1182,7 @@ class ProcessDocumentsInBulkTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": self.pids},
+            managed_issns=set(),
         )
         MockXyloseArticlesListExporterAdapter.assert_not_called()
 
@@ -1183,6 +1202,7 @@ class ProcessDocumentsInBulkTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"scl": self.pids},
+            managed_issns=set(),
         )
         mk_command_function.assert_called_once_with()
 
@@ -1205,6 +1225,7 @@ class ProcessDocumentsInBulkTestMixin:
                 index_command=self.index_command,
                 output_path=output_path,
                 pids_by_collection={"scl": self.pids},
+                managed_issns=set(),
             )
             with output_path.open(encoding="utf-8") as fp:
                 self.assertEqual(
@@ -1521,6 +1542,7 @@ class MainExporterTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"spa": ["S0100-19651998000200002"]},
+            managed_issns=set(),
         )
 
     @mock.patch.object(AMClient, "document")
@@ -1553,6 +1575,7 @@ class MainExporterTestMixin:
             index_command=self.index_command,
             output_path=self.output_path,
             pids_by_collection={"spa": pids},
+            managed_issns=set(),
         )
 
     @mock.patch("exporter.main.utils.get_valid_datetime")
@@ -1672,6 +1695,7 @@ class MainExporterTestMixin:
                 "arg": ["S0202-01019000090090098"],
                 "cub": ["S0303-01019000090090099"],
             },
+            managed_issns=set(),
         )
 
 

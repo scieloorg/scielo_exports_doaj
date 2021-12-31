@@ -35,6 +35,10 @@ class OriginDataFilterError(Exception):
     pass
 
 
+class UnmanagedJournalDocument(Exception):
+    pass
+
+
 class AMClient:
     def __init__(self, connection: str = None, domain: str = None):
         self._client = self._get_client(connection, domain)
@@ -379,6 +383,7 @@ def process_document(
     index_command: str,
     collection: str,
     pid: str,
+    managed_issns: set,
     poison_pill: PoisonPill = PoisonPill(),
 ):
     if poison_pill.poisoned:
@@ -388,6 +393,15 @@ def process_document(
     document = get_document(collection=collection, pid=pid)
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
+
+    if managed_issns:
+        doc_issns = utils.extract_issns_from_document(document)
+
+        if not utils.is_managed_journal_document(doc_issns, managed_issns):
+            logger.debug('Documento %s não é gerenciado por esta aplicação', pid)
+            raise UnmanagedJournalDocument()
+        else:
+            logger.debug('Documento %s será enviado para DOAJ', pid)
 
     article_adapter = XyloseArticleExporterAdapter(index, index_command, document)
     return article_adapter.command_function()
@@ -407,6 +421,7 @@ def process_extracted_documents(
     index_command:str,
     output_path:pathlib.Path,
     pids_by_collection:typing.Dict[str, list],
+    managed_issns:set,
 ) -> None:
 
     jobs = [
@@ -416,6 +431,7 @@ def process_extracted_documents(
             "index_command": index_command,
             "collection": collection,
             "pid": pid,
+            "managed_issns": managed_issns,
         }
         for collection, pids in pids_by_collection.items()
         for pid in pids
@@ -452,6 +468,7 @@ def execute_get_document(
     get_document: callable,
     collection: str,
     pid: str,
+    managed_issns: set,
     poison_pill: PoisonPill = PoisonPill(),
 ):
     if poison_pill.poisoned:
@@ -462,6 +479,15 @@ def execute_get_document(
     if not document or not document.data:
         raise ArticleMetaDocumentNotFound()
 
+    if managed_issns:
+        doc_issns = utils.extract_issns_from_document(document)
+
+        if not utils.is_managed_journal_document(doc_issns, managed_issns):
+            logger.debug('Documento %s não é gerenciado por esta aplicação', pid)
+            raise UnmanagedJournalDocument()
+        else:
+            logger.debug('Documento %s será enviado para DOAJ', pid)
+
     return document
 
 
@@ -470,10 +496,11 @@ def process_documents_in_bulk(
     index:str,
     index_command:str,
     output_path:pathlib.Path,
+    managed_issns:set,
     pids_by_collection:typing.Dict[str, list],
 ) -> None:
     jobs = [
-        { "get_document": get_document, "collection": collection, "pid": pid }
+        { "get_document": get_document, "collection": collection, "pid": pid, "managed_issns": managed_issns }
         for collection, pids in pids_by_collection.items()
         for pid in pids
     ]
@@ -529,7 +556,7 @@ def articlemeta_parser(sargs):
         type=str,
         action=FutureDateAction,
         dest="from_date",
-        help="Data inicial de processamento",
+        help="Data inicial de processamento (dd/mm/yyyy)",
     )
 
     parser.add_argument(
@@ -537,7 +564,7 @@ def articlemeta_parser(sargs):
         type=str,
         dest="until_date",
         action=FutureDateAction,
-        help="Data final de processamento",
+        help="Data final de processamento (dd/mm/yyyy)",
     )
 
     parser.add_argument(
@@ -576,6 +603,12 @@ def articlemeta_parser(sargs):
 def main_exporter(sargs):
     parser = argparse.ArgumentParser(description="Exportador de documentos")
     parser.add_argument("--loglevel", default="INFO")
+    parser.add_argument(
+        "--issns", 
+        type=pathlib.Path,
+        default=set(),
+        help="Caminho para arquivo de ISSNs gerenciados",
+    )
     parser.add_argument(
         "--output",
         type=pathlib.Path,
@@ -631,6 +664,14 @@ def main_exporter(sargs):
         "output_path": args.output,
     }
 
+    # Load managed ISSNs
+    if args.issns:
+        params["managed_issns"] = utils.extract_issns_from_file(args.issns)
+        logger.info('Periódicos gerenciados: %d', len(params["managed_issns"]))
+    else:
+        logger.info('Não foi informada lista de periódicos gerenciados')
+        params["managed_issns"] = set() 
+
     am_client_params = {}
     if args.connection:
         am_client_params["connection"] = args.connection
@@ -667,6 +708,7 @@ def main_exporter(sargs):
 
         params["pids_by_collection"] = {}
         docs = am_client.documents_identifiers(**filter)
+    
         for doc in docs or []:
             params["pids_by_collection"].setdefault(doc["collection"], [])
             params["pids_by_collection"][doc["collection"]].append(doc["code"])
