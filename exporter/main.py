@@ -581,6 +581,12 @@ def main_exporter(sargs):
     parser = argparse.ArgumentParser(description="Exportador de documentos")
     parser.add_argument("--loglevel", default="INFO")
     parser.add_argument(
+        "--issns", 
+        type=pathlib.Path,
+        default=set(),
+        help="Caminho para arquivo de ISSNs gerenciados",
+    )
+    parser.add_argument(
         "--output",
         type=pathlib.Path,
         required=True,
