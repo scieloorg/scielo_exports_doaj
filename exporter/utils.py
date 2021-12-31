@@ -18,3 +18,11 @@ def get_valid_datetime(strdate: str) -> datetime:
         raise ValueError("Data inválida. Formato esperado: DD-MM-YYYY") from None
     else:
         return date
+
+
+def is_valid_issn(issn: str):
+    if len(issn) == 9 and '-' in issn[4]:
+        return True
+    return False
+
+
