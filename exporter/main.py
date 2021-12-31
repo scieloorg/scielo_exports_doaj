@@ -556,7 +556,7 @@ def articlemeta_parser(sargs):
         type=str,
         action=FutureDateAction,
         dest="from_date",
-        help="Data inicial de processamento",
+        help="Data inicial de processamento (dd/mm/yyyy)",
     )
 
     parser.add_argument(
@@ -564,7 +564,7 @@ def articlemeta_parser(sargs):
         type=str,
         dest="until_date",
         action=FutureDateAction,
-        help="Data final de processamento",
+        help="Data final de processamento (dd/mm/yyyy)",
     )
 
     parser.add_argument(
