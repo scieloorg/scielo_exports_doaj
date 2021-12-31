@@ -33,3 +33,17 @@ def extract_issns_from_file(issns: Path):
     except:
         raise ISSNFileError()
 
+
+def extract_issns_from_document(document: scielodocument.Article):
+    try:
+        doc_issns = [
+            document.journal.any_issn(), 
+            document.journal.scielo_issn, 
+            document.electronic_issn, 
+            document.print_issn
+        ]
+        return set([i for i in doc_issns if i])
+    except AttributeError:
+        return set()
+
+
