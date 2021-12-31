@@ -1,4 +1,10 @@
 from datetime import datetime
+from pathlib import Path
+from xylose import scielodocument
+
+
+class ISSNFileError(Exception):
+    pass
 
 
 def utcnow():
