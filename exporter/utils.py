@@ -47,3 +47,7 @@ def extract_issns_from_document(document: scielodocument.Article):
         return set()
 
 
+def is_managed_journal_document(doc_issns: set, managed_issns: set):
+    if doc_issns.intersection(managed_issns):
+        return True
+    return False
