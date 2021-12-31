@@ -35,6 +35,10 @@ class OriginDataFilterError(Exception):
     pass
 
 
+class UnmanagedJournalDocument(Exception):
+    pass
+
+
 class AMClient:
     def __init__(self, connection: str = None, domain: str = None):
         self._client = self._get_client(connection, domain)
