@@ -145,6 +145,7 @@ class XyloseArticleExporterAdapter(
             self.params_request,
             self.post_request,
         )
+        logger.debug("Dados enviados: %s", self.post_request)
         try:
             resp.raise_for_status()
         except HTTPError as exc:
