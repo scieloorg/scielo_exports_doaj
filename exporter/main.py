@@ -456,7 +456,7 @@ def process_extracted_documents(
 
         executor = JobExecutor(
             process_document,
-            max_workers=4,
+            max_workers=2,
             success_callback=write_result,
             exception_callback=log_exception,
             update_bar=update_bar,
@@ -517,7 +517,7 @@ def process_documents_in_bulk(
 
         executor = JobExecutor(
             execute_get_document,
-            max_workers=4,
+            max_workers=2,
             success_callback=write_result,
             exception_callback=log_exception,
             update_bar=update_bar,
