@@ -145,11 +145,12 @@ class XyloseArticleExporterAdapter(
             self.params_request,
             self.post_request,
         )
+        logger.debug("Dados enviados: %s", self.post_request)
         try:
             resp.raise_for_status()
         except HTTPError as exc:
             error_response = ""
-            if resp.status_code == 400:
+            if resp.status_code in [400, 401, 402, 403, 404]:
                 error_response = " " + self.error_response(resp.json())
             exc_msg = f"Erro na exportação ao {self.index}: {exc}.{error_response}"
             raise IndexExporterHTTPError(exc_msg)
@@ -183,7 +184,7 @@ class XyloseArticleExporterAdapter(
                 put_resp.raise_for_status()
             except HTTPError as exc:
                 error_response = ""
-                if put_resp.status_code == 400:
+                if put_resp.status_code in [400, 401, 402, 403, 404]:
                     error_response = " " + self.error_response(put_resp.json())
                 exc_msg = f"Erro ao atualizar o {self.index}: {exc}.{error_response}"
                 raise IndexExporterHTTPError(exc_msg)
@@ -437,7 +438,7 @@ def process_extracted_documents(
         for pid in pids
     ]
 
-    with tqdm(total=len(jobs)) as pbar:
+    with tqdm(total=len(jobs), ascii=True) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
@@ -455,7 +456,7 @@ def process_extracted_documents(
 
         executor = JobExecutor(
             process_document,
-            max_workers=4,
+            max_workers=2,
             success_callback=write_result,
             exception_callback=log_exception,
             update_bar=update_bar,
@@ -506,7 +507,7 @@ def process_documents_in_bulk(
     ]
 
     documents = set()
-    with tqdm(total=len(jobs)) as pbar:
+    with tqdm(total=len(jobs), ascii=True) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
@@ -516,7 +517,7 @@ def process_documents_in_bulk(
 
         executor = JobExecutor(
             execute_get_document,
-            max_workers=4,
+            max_workers=2,
             success_callback=write_result,
             exception_callback=log_exception,
             update_bar=update_bar,
@@ -616,11 +617,11 @@ def main_exporter(sargs):
         help="Caminho para arquivo de resultado da exportação",
     )
 
-    subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
+    subparsers = parser.add_subparsers(title="Index", dest="index")
 
     doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
     doaj_subparsers = doaj_parser.add_subparsers(
-        title="DOAJ Command", dest="doaj_command", required=True,
+        title="DOAJ Command", dest="doaj_command",
     )
 
     doaj_export_parser = doaj_subparsers.add_parser(
