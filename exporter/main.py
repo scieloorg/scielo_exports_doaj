@@ -438,7 +438,7 @@ def process_extracted_documents(
         for pid in pids
     ]
 
-    with tqdm(total=len(jobs)) as pbar:
+    with tqdm(total=len(jobs), ascii=True) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
@@ -507,7 +507,7 @@ def process_documents_in_bulk(
     ]
 
     documents = set()
-    with tqdm(total=len(jobs)) as pbar:
+    with tqdm(total=len(jobs), ascii=True) as pbar:
 
         def update_bar(pbar=pbar):
             pbar.update(1)
