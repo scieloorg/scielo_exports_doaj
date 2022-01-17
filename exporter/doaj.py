@@ -155,7 +155,7 @@ class DOAJExporterXyloseArticle(interfaces.IndexExporterInterface):
             if not issn:
                 continue
 
-            resp = requests.get(f"{self.search_journal_url}{issn}")
+            resp = requests.get(f"{self.search_journal_url}issn:{issn}")
             if resp.status_code != 200 or not resp.json().get("results"):
                 continue
 
