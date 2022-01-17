@@ -617,11 +617,11 @@ def main_exporter(sargs):
         help="Caminho para arquivo de resultado da exportação",
     )
 
-    subparsers = parser.add_subparsers(title="Index", dest="index", required=True)
+    subparsers = parser.add_subparsers(title="Index", dest="index")
 
     doaj_parser = subparsers.add_parser("doaj", help="Base de indexação DOAJ")
     doaj_subparsers = doaj_parser.add_subparsers(
-        title="DOAJ Command", dest="doaj_command", required=True,
+        title="DOAJ Command", dest="doaj_command",
     )
 
     doaj_export_parser = doaj_subparsers.add_parser(
